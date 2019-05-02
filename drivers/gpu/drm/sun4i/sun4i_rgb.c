@@ -235,7 +235,7 @@ int sun4i_rgb_init(struct drm_device *drm, struct sun4i_tcon *tcon)
 					 &sun4i_rgb_con_helper_funcs);
 		ret = drm_connector_init(drm, &rgb->connector,
 					 &sun4i_rgb_con_funcs,
-					 DRM_MODE_CONNECTOR_Unknown);
+					 DRM_MODE_CONNECTOR_DPI);
 		if (ret) {
 			dev_err(drm->dev, "Couldn't initialise the rgb connector\n");
 			goto err_cleanup_connector;
