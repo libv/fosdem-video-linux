@@ -376,6 +376,17 @@
 			num-cs = <1>;
 		};
 
+		csi1: csi1@1c1d000 {
+			compatible = "allwinner,sun7i-a20-csi1",
+				     "allwinner,sun4i-a10-csi1";
+			reg = <0x01c1d000 0x1000>;
+			interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&ccu CLK_AHB_CSI1>, <&ccu CLK_CSI1>,
+				 <&ccu CLK_DRAM_CSI1>;
+			clock-names = "bus", "mod", "ram";
+			resets = <&ccu RST_CSI1>;
+		};
+
 		emac: ethernet@1c0b000 {
 			compatible = "allwinner,sun4i-a10-emac";
 			reg = <0x01c0b000 0x1000>;

@@ -76,3 +76,22 @@
 		remote-endpoint = <&panel_input>;
 	};
 };
+
+&csi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&csi1_pins>;
+	status = "okay";
+};
+
+&pio {
+	csi1_pins: csi1_pins {
+		pins = "PH24", "PG2", "PG3", /* CLK, H/VSync */
+			"PG4", "PG5", "PG6", "PG7", /* R */
+			"PG8", "PG9", "PG10", "PG11",
+			"PH8", "PH9", "PH10", "PH11", /* G */
+			"PH12", "PH13", "PH14", "PH15",
+			"PH16", "PH17", "PH18", "PH19", /* B */
+			"PH20", "PH21", "PH22", "PH23";
+		function = "csi1";
+	};
+};
