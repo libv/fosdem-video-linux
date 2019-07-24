@@ -222,7 +222,7 @@ int sun4i_tmds_create(struct sun4i_hdmi *hdmi)
 	init.ops = &sun4i_tmds_ops;
 	init.parent_names = parents;
 	init.num_parents = 2;
-	init.flags = CLK_SET_RATE_PARENT;
+	init.flags = 0;
 
 	tmds->hdmi = hdmi;
 	tmds->hw.init = &init;
