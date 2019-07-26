@@ -25,7 +25,7 @@
 				     203 207 211 215 219 224 228 233
 				     237 241 246 250 255>;
 		default-brightness-level = <50>;
-		enable-gpios = <&pio 3 23 GPIO_ACTIVE_HIGH>; /* PC23 */
+		enable-gpios = <&pio 2 23 GPIO_ACTIVE_HIGH>; /* PC23 */
 	};
 
 	panel: panel {
@@ -52,7 +52,7 @@
 		regulator-name = "panel-power";
 		regulator-min-microvolt = <10400000>;
 		regulator-max-microvolt = <10400000>;
-		gpio = <&pio 3 24 GPIO_ACTIVE_HIGH>; /* PC24 */
+		gpio = <&pio 2 24 GPIO_ACTIVE_HIGH>; /* PC24 */
 		enable-active-high;
 		regulator-boot-on;
 	};
