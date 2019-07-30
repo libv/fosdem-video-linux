@@ -285,6 +285,14 @@ extern "C" {
 #define DRM_FORMAT_YUV444	fourcc_code('Y', 'U', '2', '4') /* non-subsampled Cb (1) and Cr (2) planes */
 #define DRM_FORMAT_YVU444	fourcc_code('Y', 'V', '2', '4') /* non-subsampled Cr (1) and Cb (2) planes */
 
+/*
+ * 3 plane RGB
+ * index 0: R/B plane, [7:0] R/B
+ * index 1: G plane, [7:0] G
+ * index 2: B/R plane, [7:0] B/R
+ */
+#define DRM_FORMAT_R8_G8_B8	fourcc_code('P', 'R', 'G', 'B') /* non-subsampled G (1) and B (2) planes */
+
 
 /*
  * Format Modifiers:
