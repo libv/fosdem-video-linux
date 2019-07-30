@@ -132,20 +132,6 @@ void sun4i_frontend_exit(struct sun4i_frontend *frontend)
 }
 EXPORT_SYMBOL(sun4i_frontend_exit);
 
-static bool sun4i_frontend_format_chroma_requires_swap(uint32_t fmt)
-{
-	switch (fmt) {
-	case DRM_FORMAT_YVU411:
-	case DRM_FORMAT_YVU420:
-	case DRM_FORMAT_YVU422:
-	case DRM_FORMAT_YVU444:
-		return true;
-
-	default:
-		return false;
-	}
-}
-
 static bool sun4i_frontend_format_supports_tiling(uint32_t fmt)
 {
 	switch (fmt) {
@@ -166,93 +152,147 @@ static bool sun4i_frontend_format_supports_tiling(uint32_t fmt)
 	}
 }
 
+static void sun4i_frontend_buffer0_set(struct regmap *regs,
+				       dma_addr_t paddr, unsigned int stride,
+				       bool tiled, unsigned int tile_offset)
+{
+	DRM_DEBUG_DRIVER("Setting buffer #0 address to %pad\n", &paddr);
+	regmap_write(regs, SUN4I_FRONTEND_BUF_ADDR0_REG, paddr);
+
+	/* if we are not tiled, this becomes 0. */
+	regmap_write(regs, SUN4I_FRONTEND_TB_OFF0_REG,
+		     SUN4I_FRONTEND_TB_OFF_X1(tile_offset));
+
+	if (tiled)
+		stride = SUN4I_FRONTEND_LINESTRD_TILED(stride);
+	DRM_DEBUG_DRIVER("Frontend stride: %d bytes\n", stride);
+	regmap_write(regs, SUN4I_FRONTEND_LINESTRD0_REG, stride);
+}
+
+static void sun4i_frontend_buffer1_set(struct regmap *regs,
+				       dma_addr_t paddr, unsigned int stride,
+				       bool tiled, unsigned int tile_offset)
+{
+	DRM_DEBUG_DRIVER("Setting buffer #1 address to %pad\n", &paddr);
+	regmap_write(regs, SUN4I_FRONTEND_BUF_ADDR1_REG, paddr);
+
+	/* if we are not tiled, this becomes 0. */
+	regmap_write(regs, SUN4I_FRONTEND_TB_OFF1_REG,
+		     SUN4I_FRONTEND_TB_OFF_X1(tile_offset));
+
+	if (tiled)
+		stride = SUN4I_FRONTEND_LINESTRD_TILED(stride);
+	regmap_write(regs, SUN4I_FRONTEND_LINESTRD1_REG, stride);
+}
+
+static void sun4i_frontend_buffer2_set(struct regmap *regs,
+				       dma_addr_t paddr, unsigned int stride,
+				       bool tiled, unsigned int tile_offset)
+{
+	DRM_DEBUG_DRIVER("Setting buffer #2 address to %pad\n", &paddr);
+	regmap_write(regs, SUN4I_FRONTEND_BUF_ADDR2_REG, paddr);
+
+	/* if we are not tiled, this becomes 0. */
+	regmap_write(regs, SUN4I_FRONTEND_TB_OFF2_REG,
+		     SUN4I_FRONTEND_TB_OFF_X1(tile_offset));
+
+	if (tiled)
+		stride = SUN4I_FRONTEND_LINESTRD_TILED(stride);
+	regmap_write(regs, SUN4I_FRONTEND_LINESTRD2_REG, stride);
+}
+
 void sun4i_frontend_update_buffer(struct sun4i_frontend *frontend,
 				  struct drm_plane *plane)
 {
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
-	unsigned int strides[3] = {};
-
+	unsigned int tile_offset = 0;
 	dma_addr_t paddr;
-	bool swap;
+	bool tiled;
 
 	if (fb->modifier == DRM_FORMAT_MOD_ALLWINNER_TILED) {
 		unsigned int width = state->src_w >> 16;
-		unsigned int offset;
-
-		strides[0] = SUN4I_FRONTEND_LINESTRD_TILED(fb->pitches[0]);
 
 		/*
 		 * The X1 offset is the offset to the bottom-right point in the
 		 * end tile, which is the final pixel (at offset width - 1)
 		 * within the end tile (with a 32-byte mask).
 		 */
-		offset = (width - 1) & (32 - 1);
-
-		regmap_write(frontend->regs, SUN4I_FRONTEND_TB_OFF0_REG,
-			     SUN4I_FRONTEND_TB_OFF_X1(offset));
-
-		if (fb->format->num_planes > 1) {
-			strides[1] =
-				SUN4I_FRONTEND_LINESTRD_TILED(fb->pitches[1]);
-
-			regmap_write(frontend->regs, SUN4I_FRONTEND_TB_OFF1_REG,
-				     SUN4I_FRONTEND_TB_OFF_X1(offset));
-		}
-
-		if (fb->format->num_planes > 2) {
-			strides[2] =
-				SUN4I_FRONTEND_LINESTRD_TILED(fb->pitches[2]);
-
-			regmap_write(frontend->regs, SUN4I_FRONTEND_TB_OFF2_REG,
-				     SUN4I_FRONTEND_TB_OFF_X1(offset));
-		}
+		tile_offset = (width - 1) & (32 - 1);
+		tiled = true;
 	} else {
-		strides[0] = fb->pitches[0];
-
-		if (fb->format->num_planes > 1)
-			strides[1] = fb->pitches[1];
-
-		if (fb->format->num_planes > 2)
-			strides[2] = fb->pitches[2];
+		tile_offset = 0;
+		tiled = false;
 	}
 
-	/* Set the line width */
-	DRM_DEBUG_DRIVER("Frontend stride: %d bytes\n", fb->pitches[0]);
-	regmap_write(frontend->regs, SUN4I_FRONTEND_LINESTRD0_REG,
-		     strides[0]);
+	switch (fb->format->format) {
+	/* single plane */
+	case DRM_FORMAT_BGRX8888:
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_VYUY:
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_YVYU:
+		/* single plane */
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 0) - PHYS_OFFSET;
+		sun4i_frontend_buffer0_set(frontend->regs, paddr,
+					   fb->pitches[0], tiled, tile_offset);
 
-	if (fb->format->num_planes > 1)
-		regmap_write(frontend->regs, SUN4I_FRONTEND_LINESTRD1_REG,
-			     strides[1]);
+		sun4i_frontend_buffer1_set(frontend->regs, 0, 0, false, 0);
+		sun4i_frontend_buffer2_set(frontend->regs, 0, 0, false, 0);
+		break;
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV16:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV61:
+		/* two planes */
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 0) - PHYS_OFFSET;
+		sun4i_frontend_buffer0_set(frontend->regs, paddr,
+					   fb->pitches[0], tiled, tile_offset);
 
-	if (fb->format->num_planes > 2)
-		regmap_write(frontend->regs, SUN4I_FRONTEND_LINESTRD2_REG,
-			     strides[2]);
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 1) - PHYS_OFFSET;
+		sun4i_frontend_buffer1_set(frontend->regs, paddr,
+					   fb->pitches[1], tiled, tile_offset);
 
-	/* Some planar formats require chroma channel swapping by hand. */
-	swap = sun4i_frontend_format_chroma_requires_swap(fb->format->format);
+		sun4i_frontend_buffer2_set(frontend->regs, 0, 0, false, 0);
+		break;
+	case DRM_FORMAT_YUV411:
+	case DRM_FORMAT_YUV420:
+	case DRM_FORMAT_YUV422:
+	case DRM_FORMAT_YUV444:
+		/* three planes */
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 0) - PHYS_OFFSET;
+		sun4i_frontend_buffer0_set(frontend->regs, paddr,
+					   fb->pitches[0], tiled, tile_offset);
 
-	/* Set the physical address of the buffer in memory */
-	paddr = drm_fb_cma_get_gem_addr(fb, state, 0);
-	paddr -= PHYS_OFFSET;
-	DRM_DEBUG_DRIVER("Setting buffer #0 address to %pad\n", &paddr);
-	regmap_write(frontend->regs, SUN4I_FRONTEND_BUF_ADDR0_REG, paddr);
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 1) - PHYS_OFFSET;
+		sun4i_frontend_buffer1_set(frontend->regs, paddr,
+					   fb->pitches[1], tiled, tile_offset);
 
-	if (fb->format->num_planes > 1) {
-		paddr = drm_fb_cma_get_gem_addr(fb, state, swap ? 2 : 1);
-		paddr -= PHYS_OFFSET;
-		DRM_DEBUG_DRIVER("Setting buffer #1 address to %pad\n", &paddr);
-		regmap_write(frontend->regs, SUN4I_FRONTEND_BUF_ADDR1_REG,
-			     paddr);
-	}
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 2) - PHYS_OFFSET;
+		sun4i_frontend_buffer2_set(frontend->regs, paddr,
+					   fb->pitches[2], tiled, tile_offset);
+		break;
+	case DRM_FORMAT_YVU411:
+	case DRM_FORMAT_YVU420:
+	case DRM_FORMAT_YVU422:
+	case DRM_FORMAT_YVU444:
+		/* three planes, v and u swapped. */
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 0) - PHYS_OFFSET;
+		sun4i_frontend_buffer0_set(frontend->regs, paddr,
+					   fb->pitches[0], tiled, tile_offset);
 
-	if (fb->format->num_planes > 2) {
-		paddr = drm_fb_cma_get_gem_addr(fb, state, swap ? 1 : 2);
-		paddr -= PHYS_OFFSET;
-		DRM_DEBUG_DRIVER("Setting buffer #2 address to %pad\n", &paddr);
-		regmap_write(frontend->regs, SUN4I_FRONTEND_BUF_ADDR2_REG,
-			     paddr);
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 2) - PHYS_OFFSET;
+		sun4i_frontend_buffer1_set(frontend->regs, paddr,
+					   fb->pitches[2], tiled, tile_offset);
+
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 1) - PHYS_OFFSET;
+		sun4i_frontend_buffer2_set(frontend->regs, paddr,
+					   fb->pitches[1], tiled, tile_offset);
+		break;
+	default:
+		dev_err(frontend->dev, "%s(): unsupported format 0x%08X\n",
+			__func__, fb->format->format);
 	}
 }
 EXPORT_SYMBOL(sun4i_frontend_update_buffer);
