@@ -290,6 +290,20 @@ void sun4i_frontend_update_buffer(struct sun4i_frontend *frontend,
 		sun4i_frontend_buffer2_set(frontend->regs, paddr,
 					   fb->pitches[1], tiled, tile_offset);
 		break;
+	case DRM_FORMAT_R8_G8_B8:
+		/* three planes, swap R and G */
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 1) - PHYS_OFFSET;
+		sun4i_frontend_buffer0_set(frontend->regs, paddr,
+					   fb->pitches[1], tiled, tile_offset);
+
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 0) - PHYS_OFFSET;
+		sun4i_frontend_buffer1_set(frontend->regs, paddr,
+					   fb->pitches[0], tiled, tile_offset);
+
+		paddr = drm_fb_cma_get_gem_addr(fb, state, 2) - PHYS_OFFSET;
+		sun4i_frontend_buffer2_set(frontend->regs, paddr,
+					   fb->pitches[2], tiled, tile_offset);
+		break;
 	default:
 		dev_err(frontend->dev, "%s(): unsupported format 0x%08X\n",
 			__func__, fb->format->format);
@@ -394,6 +408,10 @@ sun4i_frontend_drm_format_to_input_sequence(const struct drm_format_info *format
 		*val = SUN4I_FRONTEND_INPUT_FMT_DATA_PS_YVYU;
 		return 0;
 
+	case DRM_FORMAT_R8_G8_B8:
+		*val = 0;
+		return 0;
+
 	default:
 		return -EINVAL;
 	}
@@ -434,6 +452,7 @@ static const uint32_t sun4i_frontend_formats[] = {
 	DRM_FORMAT_YVU422,
 	DRM_FORMAT_YVU444,
 	DRM_FORMAT_YVYU,
+	DRM_FORMAT_R8_G8_B8,
 };
 
 bool sun4i_frontend_format_is_supported(uint32_t fmt, uint64_t modifier)
