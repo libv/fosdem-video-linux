@@ -286,6 +286,8 @@ const struct drm_format_info *__drm_format_info(u32 format)
 		  .num_planes = 3, .char_per_block = { 2, 2, 2 },
 		  .block_w = { 1, 1, 1 }, .block_h = { 1, 1, 1 }, .hsub = 0,
 		  .vsub = 0, .is_yuv = true },
+		{ .format = DRM_FORMAT_R8_G8_B8,	.depth = 24,
+		  .num_planes = 3, .cpp = { 1, 1, 1 }, .hsub = 1, .vsub = 1, },
 	};
 
 	unsigned int i;
