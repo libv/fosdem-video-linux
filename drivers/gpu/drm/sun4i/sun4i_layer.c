@@ -92,7 +92,7 @@ static void sun4i_backend_layer_atomic_update(struct drm_plane *plane,
 	sun4i_backend_cleanup_layer(backend, layer->id);
 
 	if (layer_state->uses_frontend) {
-		sun4i_frontend_init(frontend);
+		sun4i_frontend_init(frontend, backend->engine.id);
 		sun4i_frontend_update_coord(frontend, plane);
 		sun4i_frontend_update_buffer(frontend, plane);
 		sun4i_frontend_update_formats(frontend, plane,

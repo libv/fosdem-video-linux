@@ -103,9 +103,23 @@ static void sun4i_frontend_scaler_init(struct sun4i_frontend *frontend)
 				  SUN4I_FRONTEND_FRM_CTRL_COEF_RDY);
 }
 
-int sun4i_frontend_init(struct sun4i_frontend *frontend)
+int sun4i_frontend_init(struct sun4i_frontend *frontend, int backend)
 {
-	return pm_runtime_get_sync(frontend->dev);
+	int ret;
+
+
+	ret = pm_runtime_get_sync(frontend->dev);
+	if (ret)
+		return ret;
+
+	if (backend == 1)
+		regmap_write_bits(frontend->regs, SUN4I_FRONTEND_FRM_CTRL_REG,
+				  0x300, 0x100);
+	else
+		regmap_write_bits(frontend->regs, SUN4I_FRONTEND_FRM_CTRL_REG,
+				  0x300, 0);
+
+	return 0;
 }
 EXPORT_SYMBOL(sun4i_frontend_init);
 
