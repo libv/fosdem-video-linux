@@ -134,6 +134,8 @@ struct sun4i_frontend {
 	struct reset_control	*reset;
 
 	const struct sun4i_frontend_data	*data;
+
+	bool claimed;
 };
 
 extern const struct of_device_id sun4i_frontend_of_table[];

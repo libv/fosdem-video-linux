@@ -747,6 +747,9 @@ static struct sun4i_frontend *sun4i_backend_find_frontend(struct sun4i_drv *drv,
 		/* does this node match any registered engines? */
 		list_for_each_entry(frontend, &drv->frontend_list, list) {
 			if (remote == frontend->node) {
+				if (frontend->claimed)
+					break;
+
 				of_node_put(port);
 				of_node_put(ep);
 				return frontend;
@@ -820,6 +823,7 @@ static int sun4i_backend_bind(struct device *dev, struct device *master,
 		return backend->engine.id;
 
 	backend->frontend = sun4i_backend_find_frontend(drv, dev->of_node);
+	backend->frontend->claimed = true;
 	if (IS_ERR(backend->frontend))
 		dev_warn(dev, "Couldn't find matching frontend, frontend features disabled\n");
 
