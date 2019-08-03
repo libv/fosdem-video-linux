@@ -135,6 +135,7 @@ struct sun4i_frontend {
 
 	const struct sun4i_frontend_data	*data;
 
+	int id;
 	bool claimed;
 };
 
