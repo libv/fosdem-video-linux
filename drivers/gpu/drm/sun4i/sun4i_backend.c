@@ -317,6 +317,15 @@ int sun4i_backend_update_layer_frontend(struct sun4i_backend *backend,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_VDOEN,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_VDOEN);
 
+	if (backend->frontend->id == 1)
+		regmap_update_bits(backend->engine.regs,
+				   SUN4I_BACKEND_ATTCTL_REG0(layer),
+				   0x10, 0x10);
+	else
+		regmap_update_bits(backend->engine.regs,
+				   SUN4I_BACKEND_ATTCTL_REG0(layer),
+				   0x10, 0);
+
 	regmap_update_bits(backend->engine.regs,
 			   SUN4I_BACKEND_ATTCTL_REG1(layer),
 			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT, val);

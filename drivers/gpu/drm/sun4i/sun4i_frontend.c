@@ -585,6 +585,17 @@ static int sun4i_frontend_bind(struct device *dev, struct device *master,
 		return -ENODEV;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	/*
+	 * Get the indexing right. If you know a more solid way through
+	 * dt, feel free to implement it.
+	 */
+	if ((res->start == 0x1e20000) || /* sun4i-a10, sun5i-a31, sun7i-a20 */
+	    (res->start == 0x3140000)) /* sun9i-a80 */
+		frontend->id = 1;
+	else
+		frontend->id = 0;
+
 	regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(regs))
 		return PTR_ERR(regs);
