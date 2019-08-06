@@ -56,6 +56,13 @@
 		enable-active-high;
 		regulator-boot-on;
 	};
+
+	reserved-memory {
+		default-pool {
+			size = <0x10000000>;
+			alloc-ranges = <0x50000000 0x10000000>;
+		};
+	};
 };
 
 &pwm {
