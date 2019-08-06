@@ -125,6 +125,9 @@ EXPORT_SYMBOL(sun4i_frontend_init);
 
 void sun4i_frontend_exit(struct sun4i_frontend *frontend)
 {
+	regmap_write_bits(frontend->regs, SUN4I_FRONTEND_FRM_CTRL_REG,
+			  SUN4I_FRONTEND_FRM_CTRL_FRM_START, 0);
+
 	pm_runtime_put(frontend->dev);
 }
 EXPORT_SYMBOL(sun4i_frontend_exit);
@@ -692,6 +695,9 @@ static int sun4i_frontend_runtime_resume(struct device *dev)
 static int sun4i_frontend_runtime_suspend(struct device *dev)
 {
 	struct sun4i_frontend *frontend = dev_get_drvdata(dev);
+
+	regmap_update_bits(frontend->regs, SUN4I_FRONTEND_EN_REG,
+			   SUN4I_FRONTEND_EN_EN, 0);
 
 	clk_disable_unprepare(frontend->ram_clk);
 	clk_disable_unprepare(frontend->mod_clk);
