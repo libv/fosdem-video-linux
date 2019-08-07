@@ -195,8 +195,9 @@ int sun4i_backend_update_layer_coord(struct sun4i_backend *backend,
 	return 0;
 }
 
-static int sun4i_backend_update_yuv_format(struct sun4i_backend *backend,
-					   int layer, struct drm_plane *plane)
+static void sun4i_backend_yuv_packed_format_set(struct sun4i_backend *backend,
+						int layer,
+						struct drm_plane *plane)
 {
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
@@ -214,7 +215,8 @@ static int sun4i_backend_update_yuv_format(struct sun4i_backend *backend,
 	 * We should do that only for a single plane, but the
 	 * framebuffer's atomic_check has our back on this.
 	 */
-	regmap_update_bits(backend->engine.regs, SUN4I_BACKEND_ATTCTL_REG0(layer),
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG0(layer),
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN);
 
@@ -248,6 +250,31 @@ static int sun4i_backend_update_yuv_format(struct sun4i_backend *backend,
 	}
 
 	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVCTL_REG, val);
+}
+
+static int sun4i_backend_rgb_packed_format_set(struct sun4i_backend *backend,
+					       int layer,
+					       struct drm_plane *plane)
+{
+	struct drm_plane_state *state = plane->state;
+	struct drm_framebuffer *fb = state->fb;
+	u32 val;
+	int ret;
+
+	/* disable YUV input for this layer */
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG0(layer),
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN, 0);
+
+	ret = sun4i_backend_drm_format_to_layer(fb->format->format, &val);
+	if (ret) {
+		DRM_DEBUG_DRIVER("Invalid format\n");
+		return ret;
+	}
+
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG1(layer),
+			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT, val);
 
 	return 0;
 }
@@ -259,11 +286,6 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 	struct drm_framebuffer *fb = state->fb;
 	bool interlaced = false;
 	u32 val;
-	int ret;
-
-	/* Clear the YUV mode */
-	regmap_update_bits(backend->engine.regs, SUN4I_BACKEND_ATTCTL_REG0(layer),
-			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN, 0);
 
 	if (plane->state->crtc)
 		interlaced = plane->state->crtc->state->adjusted_mode.flags
@@ -286,17 +308,10 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 			   val);
 
 	if (fb->format->is_yuv)
-		return sun4i_backend_update_yuv_format(backend, layer, plane);
-
-	ret = sun4i_backend_drm_format_to_layer(fb->format->format, &val);
-	if (ret) {
-		DRM_DEBUG_DRIVER("Invalid format\n");
-		return ret;
-	}
-
-	regmap_update_bits(backend->engine.regs,
-			   SUN4I_BACKEND_ATTCTL_REG1(layer),
-			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT, val);
+		sun4i_backend_yuv_packed_format_set(backend, layer, plane);
+	else
+		return sun4i_backend_rgb_packed_format_set(backend, layer,
+							   plane);
 
 	return 0;
 }
@@ -334,23 +349,43 @@ int sun4i_backend_update_layer_frontend(struct sun4i_backend *backend,
 	return 0;
 }
 
-static int sun4i_backend_update_yuv_buffer(struct sun4i_backend *backend,
-					   struct drm_framebuffer *fb,
-					   dma_addr_t paddr)
+static void sun4i_backend_yuv_packed_buffer_set(struct sun4i_backend *backend,
+						int layer,
+						struct drm_plane *plane)
 {
-	/* TODO: Add support for the multi-planar YUV formats */
+	struct drm_plane_state *state = plane->state;
+	struct drm_framebuffer *fb = state->fb;
+	dma_addr_t paddr;
+
+	/* Set the line width */
+	DRM_DEBUG_DRIVER("Layer line width: %d bits\n", fb->pitches[0] * 8);
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_LAYLINEWIDTH_REG(layer),
+		     fb->pitches[0] * 8);
+
+	/* Get the start of the displayed memory */
+	paddr = drm_fb_cma_get_gem_addr(fb, state, 0);
+	DRM_DEBUG_DRIVER("Setting buffer address to %pad\n", &paddr);
+
 	DRM_DEBUG_DRIVER("Setting packed YUV buffer address to %pad\n", &paddr);
 	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVADD_REG(0), paddr);
+
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVADD_REG(1), 0);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVADD_REG(2), 0);
 
 	DRM_DEBUG_DRIVER("Layer line width: %d bits\n", fb->pitches[0] * 8);
 	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVLINEWIDTH_REG(0),
 		     fb->pitches[0] * 8);
 
-	return 0;
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_IYUVLINEWIDTH_REG(1), 0);
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_IYUVLINEWIDTH_REG(2), 0);
 }
 
-int sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
-				      int layer, struct drm_plane *plane)
+static void sun4i_backend_rgb_packed_buffer_set(struct sun4i_backend *backend,
+						int layer,
+						struct drm_plane *plane)
 {
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
@@ -367,9 +402,6 @@ int sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
 	paddr = drm_fb_cma_get_gem_addr(fb, state, 0);
 	DRM_DEBUG_DRIVER("Setting buffer address to %pad\n", &paddr);
 
-	if (fb->format->is_yuv)
-		return sun4i_backend_update_yuv_buffer(backend, fb, paddr);
-
 	/* Write the 32 lower bits of the address (in bits) */
 	lo_paddr = paddr << 3;
 	DRM_DEBUG_DRIVER("Setting address lower bits to 0x%x\n", lo_paddr);
@@ -383,8 +415,21 @@ int sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
 	regmap_update_bits(backend->engine.regs, SUN4I_BACKEND_LAYFB_H4ADD_REG,
 			   SUN4I_BACKEND_LAYFB_H4ADD_MSK(layer),
 			   SUN4I_BACKEND_LAYFB_H4ADD(layer, hi_paddr));
+}
 
-	return 0;
+
+void sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
+				      int layer, struct drm_plane *plane)
+{
+	struct drm_plane_state *state = plane->state;
+	struct drm_framebuffer *fb = state->fb;
+
+	if (fb->format->is_yuv)
+		return sun4i_backend_yuv_packed_buffer_set(backend, layer,
+							   plane);
+	else
+		return sun4i_backend_rgb_packed_buffer_set(backend, layer,
+							   plane);
 }
 
 int sun4i_backend_update_layer_zpos(struct sun4i_backend *backend, int layer,
