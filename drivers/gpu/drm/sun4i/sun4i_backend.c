@@ -147,6 +147,7 @@ static const uint32_t sun4i_backend_formats[] = {
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_YVYU,
+	DRM_FORMAT_R8_G8_B8,
 };
 
 bool sun4i_backend_format_is_supported(uint32_t fmt, uint64_t modifier)
@@ -279,11 +280,52 @@ static int sun4i_backend_rgb_packed_format_set(struct sun4i_backend *backend,
 	return 0;
 }
 
+static void sun4i_backend_rgb_planar_format_set(struct sun4i_backend *backend,
+						int layer,
+						struct drm_plane *plane)
+{
+	/* enable YUV input for this layer */
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG0(layer),
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN,
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN);
+
+	/* planar yuv444 */
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_IYUVCTL_REG,
+			   SUN4I_BACKEND_IYUVCTL_FBFMT_MASK,
+			   SUN4I_BACKEND_IYUVCTL_FBFMT_PLANAR_YUV444);
+
+	/* CSC for G component, set 1 to the desired channel, null the rest */
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_YGCOEF_REG(0), 0x00);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_YGCOEF_REG(1), 0x400);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_YGCOEF_REG(2), 0x00);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_YGCONS_REG, 0x00);
+
+	/* CSC for R component, set 1 to the desired channel, null the rest */
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_URCOEF_REG(0), 0x400);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_URCOEF_REG(1), 0x00);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_URCOEF_REG(2), 0x00);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_URCONS_REG, 0x00);
+
+	/* csc for B component, set 1 to the desired channel, null the rest */
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_VBCOEF_REG(0), 0x00);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_VBCOEF_REG(1), 0x00);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_VBCOEF_REG(2), 0x400);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_VBCONS_REG, 0x00);
+
+	/* enable */
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_IYUVCTL_REG,
+			   SUN4I_BACKEND_IYUVCTL_EN,
+			   SUN4I_BACKEND_IYUVCTL_EN);
+}
+
 int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 				       int layer, struct drm_plane *plane)
 {
 	struct drm_plane_state *state = plane->state;
-	struct drm_framebuffer *fb = state->fb;
+	const struct drm_format_info *format = plane->state->fb->format;
 	bool interlaced = false;
 	u32 val;
 
@@ -307,11 +349,22 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN,
 			   val);
 
-	if (fb->format->is_yuv)
-		sun4i_backend_yuv_packed_format_set(backend, layer, plane);
-	else
-		return sun4i_backend_rgb_packed_format_set(backend, layer,
-							   plane);
+	if (format->is_yuv) {
+		if (format->num_planes == 1)
+			sun4i_backend_yuv_packed_format_set(backend, layer,
+							    plane);
+		else
+			DRM_ERROR("%s(%d): unhandled format: 0x%08X\n",
+				  __func__, layer, format->format);
+	} else {
+		if (format->num_planes == 1)
+			return sun4i_backend_rgb_packed_format_set(backend,
+								   layer,
+								   plane);
+		else
+			sun4i_backend_rgb_planar_format_set(backend, layer,
+							    plane);
+	}
 
 	return 0;
 }
@@ -417,19 +470,54 @@ static void sun4i_backend_rgb_packed_buffer_set(struct sun4i_backend *backend,
 			   SUN4I_BACKEND_LAYFB_H4ADD(layer, hi_paddr));
 }
 
+static void sun4i_backend_rgb_planar_buffer_set(struct sun4i_backend *backend,
+						int layer,
+						struct drm_plane *plane)
+{
+	struct drm_plane_state *state = plane->state;
+	struct drm_framebuffer *fb = state->fb;
+	dma_addr_t paddr;
+	uint32_t stride;
+
+	/* pitch is the same for all channels for this format */
+	stride = fb->pitches[0] * 8;
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_IYUVLINEWIDTH_REG(0), stride);
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_IYUVLINEWIDTH_REG(1), stride);
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_IYUVLINEWIDTH_REG(2), stride);
+
+	paddr = drm_fb_cma_get_gem_addr(fb, state, 0);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVADD_REG(0), paddr);
+
+	paddr = drm_fb_cma_get_gem_addr(fb, state, 1);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVADD_REG(1), paddr);
+
+	paddr = drm_fb_cma_get_gem_addr(fb, state, 2);
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVADD_REG(2), paddr);
+}
 
 void sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
 				      int layer, struct drm_plane *plane)
 {
-	struct drm_plane_state *state = plane->state;
-	struct drm_framebuffer *fb = state->fb;
+	const struct drm_format_info *format = plane->state->fb->format;
 
-	if (fb->format->is_yuv)
-		return sun4i_backend_yuv_packed_buffer_set(backend, layer,
-							   plane);
-	else
-		return sun4i_backend_rgb_packed_buffer_set(backend, layer,
-							   plane);
+	if (format->is_yuv) {
+		if (format->num_planes == 1)
+			sun4i_backend_yuv_packed_buffer_set(backend, layer,
+							    plane);
+		else
+			DRM_ERROR("%s(%d): unhandled format: 0x%08X\n",
+				  __func__, layer, format->format);
+	} else {
+		if (format->num_planes == 1)
+			sun4i_backend_rgb_packed_buffer_set(backend, layer,
+							    plane);
+		else
+			sun4i_backend_rgb_planar_buffer_set(backend, layer,
+							    plane);
+	}
 }
 
 int sun4i_backend_update_layer_zpos(struct sun4i_backend *backend, int layer,

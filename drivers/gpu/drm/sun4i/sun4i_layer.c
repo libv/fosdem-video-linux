@@ -180,6 +180,7 @@ static const uint32_t sun4i_backend_layer_formats[] = {
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_YVYU,
+	DRM_FORMAT_R8_G8_B8,
 };
 
 static const uint64_t sun4i_layer_modifiers[] = {
