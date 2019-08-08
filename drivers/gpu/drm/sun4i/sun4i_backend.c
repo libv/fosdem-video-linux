@@ -164,20 +164,34 @@ bool sun4i_backend_format_is_supported(uint32_t fmt, uint64_t modifier)
 	return false;
 }
 
+static int sun4i_backend_crtc_mode_set(struct sunxi_engine *engine,
+				       struct drm_display_mode *mode)
+{
+	DRM_DEBUG_DRIVER("%s(DEBE%d);\n", __func__, engine->id);
+
+	regmap_write(engine->regs, SUN4I_BACKEND_DISSIZE_REG,
+		     SUN4I_BACKEND_DISSIZE(mode->crtc_hdisplay,
+					   mode->crtc_vdisplay));
+
+	if (mode->flags & DRM_MODE_FLAG_INTERLACE) {
+		DRM_DEBUG_DRIVER("%s(DEBE%d): Enabling interlacing.\n",
+				 __func__, engine->id);
+		regmap_update_bits(engine->regs, SUN4I_BACKEND_MODCTL_REG,
+				   SUN4I_BACKEND_MODCTL_ITLMOD_EN,
+				   SUN4I_BACKEND_MODCTL_ITLMOD_EN);
+	} else
+		regmap_update_bits(engine->regs, SUN4I_BACKEND_MODCTL_REG,
+				   SUN4I_BACKEND_MODCTL_ITLMOD_EN, 0);
+
+	return 0;
+}
+
 int sun4i_backend_update_layer_coord(struct sun4i_backend *backend,
 				     int layer, struct drm_plane *plane)
 {
 	struct drm_plane_state *state = plane->state;
 
 	DRM_DEBUG_DRIVER("Updating layer %d\n", layer);
-
-	if (plane->type == DRM_PLANE_TYPE_PRIMARY) {
-		DRM_DEBUG_DRIVER("Primary layer, updating global size W: %u H: %u\n",
-				 state->crtc_w, state->crtc_h);
-		regmap_write(backend->engine.regs, SUN4I_BACKEND_DISSIZE_REG,
-			     SUN4I_BACKEND_DISSIZE(state->crtc_w,
-						   state->crtc_h));
-	}
 
 	/* Set height and width */
 	DRM_DEBUG_DRIVER("Layer size W: %u H: %u\n",
@@ -325,18 +339,6 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 				       int layer, struct drm_plane *plane)
 {
 	const struct drm_format_info *format = plane->state->fb->format;
-	bool interlaced = false;
-
-	if (plane->state->crtc)
-		interlaced = plane->state->crtc->state->adjusted_mode.flags
-			& DRM_MODE_FLAG_INTERLACE;
-
-	regmap_update_bits(backend->engine.regs, SUN4I_BACKEND_MODCTL_REG,
-			   SUN4I_BACKEND_MODCTL_ITLMOD_EN,
-			   interlaced ? SUN4I_BACKEND_MODCTL_ITLMOD_EN : 0);
-
-	DRM_DEBUG_DRIVER("Switching display backend interlaced mode %s\n",
-			 interlaced ? "on" : "off");
 
 	if (format->is_yuv) {
 		if (format->num_planes == 1)
@@ -920,6 +922,7 @@ static const struct sunxi_engine_ops sun4i_backend_engine_ops = {
 	.apply_color_correction		= sun4i_backend_apply_color_correction,
 	.disable_color_correction	= sun4i_backend_disable_color_correction,
 	.vblank_quirk			= sun4i_backend_vblank_quirk,
+	.crtc_mode_set			= sun4i_backend_crtc_mode_set,
 };
 
 static struct regmap_config sun4i_backend_regmap_config = {

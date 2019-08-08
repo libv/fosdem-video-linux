@@ -307,9 +307,16 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
 	return planes;
 }
 
+static int sun8i_mixer_crtc_mode_set(struct sunxi_engine *engine,
+				     struct drm_display_mode *mode)
+{
+	return 0;
+}
+
 static const struct sunxi_engine_ops sun8i_engine_ops = {
 	.commit		= sun8i_mixer_commit,
 	.layers_init	= sun8i_layers_init,
+	.crtc_mode_set	= sun8i_mixer_crtc_mode_set,
 };
 
 static struct regmap_config sun8i_mixer_regmap_config = {

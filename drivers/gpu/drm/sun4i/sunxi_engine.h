@@ -9,6 +9,7 @@
 struct drm_plane;
 struct drm_device;
 struct drm_crtc_state;
+struct drm_display_mode;
 
 struct sunxi_engine;
 
@@ -108,6 +109,12 @@ struct sunxi_engine_ops {
 	 * This function is optional.
 	 */
 	void (*vblank_quirk)(struct sunxi_engine *engine);
+
+	/*
+	 * Sets amongst others, CRTC dimensions, and interlacing.
+	 */
+	int (*crtc_mode_set)(struct sunxi_engine *engine,
+			     struct drm_display_mode *mode);
 };
 
 /**
