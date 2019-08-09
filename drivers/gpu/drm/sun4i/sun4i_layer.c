@@ -107,6 +107,7 @@ static void sun4i_backend_layer_atomic_update(struct drm_plane *plane,
 
 	sun4i_backend_update_layer_coord(backend, layer->id, plane);
 	sun4i_backend_update_layer_zpos(backend, layer->id, plane);
+	sun4i_backend_update_layer_alpha(backend, layer->id, plane);
 	sun4i_backend_layer_enable(backend, layer->id, true);
 }
 

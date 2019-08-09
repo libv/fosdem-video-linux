@@ -324,10 +324,8 @@ static void sun4i_backend_rgb_planar_format_set(struct sun4i_backend *backend,
 int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 				       int layer, struct drm_plane *plane)
 {
-	struct drm_plane_state *state = plane->state;
 	const struct drm_format_info *format = plane->state->fb->format;
 	bool interlaced = false;
-	u32 val;
 
 	if (plane->state->crtc)
 		interlaced = plane->state->crtc->state->adjusted_mode.flags
@@ -339,15 +337,6 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 
 	DRM_DEBUG_DRIVER("Switching display backend interlaced mode %s\n",
 			 interlaced ? "on" : "off");
-
-	val = SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA(state->alpha >> 8);
-	if (state->alpha != DRM_BLEND_ALPHA_OPAQUE)
-		val |= SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN;
-	regmap_update_bits(backend->engine.regs,
-			   SUN4I_BACKEND_ATTCTL_REG0(layer),
-			   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_MASK |
-			   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN,
-			   val);
 
 	if (format->is_yuv) {
 		if (format->num_planes == 1)
@@ -367,6 +356,26 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 	}
 
 	return 0;
+}
+
+void sun4i_backend_update_layer_alpha(struct sun4i_backend *backend,
+				      int layer, struct drm_plane *plane)
+{
+	struct drm_plane_state *state = plane->state;
+
+	if (state->alpha == DRM_BLEND_ALPHA_OPAQUE)
+		regmap_update_bits(backend->engine.regs,
+				   SUN4I_BACKEND_ATTCTL_REG0(layer),
+				   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_MASK |
+				   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN,
+				   0);
+	else
+		regmap_update_bits(backend->engine.regs,
+				   SUN4I_BACKEND_ATTCTL_REG0(layer),
+				   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_MASK |
+				   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN,
+				   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA(state->alpha >> 8) |
+				   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN);
 }
 
 int sun4i_backend_update_layer_frontend(struct sun4i_backend *backend,
