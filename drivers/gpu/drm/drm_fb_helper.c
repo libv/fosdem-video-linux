@@ -414,6 +414,7 @@ retry:
 		}
 
 		plane_state->rotation = DRM_MODE_ROTATE_0;
+		plane_state->alpha = DRM_BLEND_ALPHA_OPAQUE;
 
 		/* disable non-primary: */
 		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
