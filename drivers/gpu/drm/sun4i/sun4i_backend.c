@@ -92,59 +92,17 @@ void sun4i_backend_layer_enable(struct sun4i_backend *backend,
 			   SUN4I_BACKEND_MODCTL_LAY_EN(layer), val);
 }
 
-static int sun4i_backend_drm_format_to_layer(u32 format, u32 *mode)
-{
-	switch (format) {
-	case DRM_FORMAT_ARGB8888:
-		*mode = SUN4I_BACKEND_LAY_FBFMT_ARGB8888;
-		break;
-
-	case DRM_FORMAT_ARGB4444:
-		*mode = SUN4I_BACKEND_LAY_FBFMT_ARGB4444;
-		break;
-
-	case DRM_FORMAT_ARGB1555:
-		*mode = SUN4I_BACKEND_LAY_FBFMT_ARGB1555;
-		break;
-
-	case DRM_FORMAT_RGBA5551:
-		*mode = SUN4I_BACKEND_LAY_FBFMT_RGBA5551;
-		break;
-
-	case DRM_FORMAT_RGBA4444:
-		*mode = SUN4I_BACKEND_LAY_FBFMT_RGBA4444;
-		break;
-
-	case DRM_FORMAT_XRGB8888:
-		*mode = SUN4I_BACKEND_LAY_FBFMT_XRGB8888;
-		break;
-
-	case DRM_FORMAT_RGB888:
-		*mode = SUN4I_BACKEND_LAY_FBFMT_RGB888;
-		break;
-
-	case DRM_FORMAT_RGB565:
-		*mode = SUN4I_BACKEND_LAY_FBFMT_RGB565;
-		break;
-
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static const uint32_t sun4i_backend_formats[] = {
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_RGB888,
 	DRM_FORMAT_ARGB1555,
 	DRM_FORMAT_ARGB4444,
-	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_RGB565,
-	DRM_FORMAT_RGB888,
 	DRM_FORMAT_RGBA4444,
 	DRM_FORMAT_RGBA5551,
 	DRM_FORMAT_UYVY,
 	DRM_FORMAT_VYUY,
-	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_YVYU,
 	DRM_FORMAT_R8_G8_B8,
@@ -267,31 +225,57 @@ static void sun4i_backend_yuv_packed_format_set(struct sun4i_backend *backend,
 	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVCTL_REG, val);
 }
 
-static int sun4i_backend_rgb_packed_format_set(struct sun4i_backend *backend,
-					       int layer,
-					       struct drm_plane *plane)
+/*
+ * TODO: go test all these formats, and then some.
+ */
+static void sun4i_backend_rgb_packed_format_set(struct sun4i_backend *backend,
+						int layer,
+						struct drm_plane *plane)
 {
-	struct drm_plane_state *state = plane->state;
-	struct drm_framebuffer *fb = state->fb;
-	u32 val;
-	int ret;
+	uint32_t value;
 
 	/* disable YUV input for this layer */
 	regmap_update_bits(backend->engine.regs,
 			   SUN4I_BACKEND_ATTCTL_REG0(layer),
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN, 0);
 
-	ret = sun4i_backend_drm_format_to_layer(fb->format->format, &val);
-	if (ret) {
-		DRM_DEBUG_DRIVER("Invalid format\n");
-		return ret;
+	/* select format and ordering */
+	switch (plane->state->fb->format->format) {
+	case DRM_FORMAT_ARGB8888:
+		value = SUN4I_BACKEND_LAY_FBFMT_ARGB8888;
+		break;
+	case DRM_FORMAT_ARGB4444:
+		value = SUN4I_BACKEND_LAY_FBFMT_ARGB4444;
+		break;
+	case DRM_FORMAT_ARGB1555:
+		value = SUN4I_BACKEND_LAY_FBFMT_ARGB1555;
+		break;
+	case DRM_FORMAT_RGBA5551:
+		value = SUN4I_BACKEND_LAY_FBFMT_RGBA5551;
+		break;
+	case DRM_FORMAT_RGBA4444:
+		value = SUN4I_BACKEND_LAY_FBFMT_RGBA4444;
+		break;
+	case DRM_FORMAT_RGB888:
+		value = SUN4I_BACKEND_LAY_FBFMT_RGB888;
+		break;
+	case DRM_FORMAT_RGB565:
+		value = SUN4I_BACKEND_LAY_FBFMT_RGB565;
+		break;
+	default:
+		DRM_ERROR("%s(%d): unhandled format: 0x%08X\n",
+			  __func__, layer,
+			  plane->state->fb->format->format);
+		/* just select XRGB8888 for the time being */
+	case DRM_FORMAT_XRGB8888:
+		value = SUN4I_BACKEND_LAY_FBFMT_XRGB8888;
+		break;
 	}
 
 	regmap_update_bits(backend->engine.regs,
 			   SUN4I_BACKEND_ATTCTL_REG1(layer),
-			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT, val);
-
-	return 0;
+			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT,
+			   value);
 }
 
 static void sun4i_backend_rgb_planar_format_set(struct sun4i_backend *backend,
@@ -335,8 +319,8 @@ static void sun4i_backend_rgb_planar_format_set(struct sun4i_backend *backend,
 			   SUN4I_BACKEND_IYUVCTL_EN);
 }
 
-int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
-				       int layer, struct drm_plane *plane)
+void sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
+					int layer, struct drm_plane *plane)
 {
 	const struct drm_format_info *format = plane->state->fb->format;
 
@@ -349,15 +333,12 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 				  __func__, layer, format->format);
 	} else {
 		if (format->num_planes == 1)
-			return sun4i_backend_rgb_packed_format_set(backend,
-								   layer,
-								   plane);
+			sun4i_backend_rgb_packed_format_set(backend, layer,
+							    plane);
 		else
 			sun4i_backend_rgb_planar_format_set(backend, layer,
 							    plane);
 	}
-
-	return 0;
 }
 
 void sun4i_backend_update_layer_alpha(struct sun4i_backend *backend,

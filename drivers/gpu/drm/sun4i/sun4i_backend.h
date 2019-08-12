@@ -52,8 +52,8 @@ void sun4i_backend_layer_enable(struct sun4i_backend *backend,
 bool sun4i_backend_format_is_supported(uint32_t fmt, uint64_t modifier);
 int sun4i_backend_update_layer_coord(struct sun4i_backend *backend,
 				     int layer, struct drm_plane *plane);
-int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
-				       int layer, struct drm_plane *plane);
+void sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
+					int layer, struct drm_plane *plane);
 void sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
 				       int layer, struct drm_plane *plane);
 void sun4i_backend_frontend_set(struct sun4i_backend *backend,
