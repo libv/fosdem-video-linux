@@ -378,11 +378,26 @@ void sun4i_backend_update_layer_alpha(struct sun4i_backend *backend,
 void sun4i_backend_frontend_set(struct sun4i_backend *backend,
 				int layer, uint32_t format)
 {
+	/* enable frontend input */
 	regmap_update_bits(backend->engine.regs,
 			   SUN4I_BACKEND_ATTCTL_REG0(layer),
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_VDOEN,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_VDOEN);
+	/* disable YUV */
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG0(layer),
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN, 0);
 
+	/* clear direct FB address, and line-width. */
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_LAYLINEWIDTH_REG(layer), 0);
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_LAYFB_L32ADD_REG(layer), 0);
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_LAYFB_H4ADD_REG,
+			   SUN4I_BACKEND_LAYFB_H4ADD_MSK(layer), 0);
+
+	/* select frontend */
 	if (backend->frontend->id == 1)
 		regmap_update_bits(backend->engine.regs,
 				   SUN4I_BACKEND_ATTCTL_REG0(layer),
@@ -518,6 +533,14 @@ void sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
 {
 	const struct drm_format_info *format = plane->state->fb->format;
 
+	/*
+	 * If we are here, we are reading from an fb directly, and not
+	 * using the frontend.
+	 */
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG0(layer),
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_VDOEN, 0);
+
 	if (format->is_yuv) {
 		if (format->num_planes == 1)
 			sun4i_backend_yuv_packed_buffer_set(backend, layer,
@@ -550,15 +573,6 @@ void sun4i_backend_update_layer_zpos(struct sun4i_backend *backend, int layer,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PRISEL_MASK,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PIPESEL(p_state->pipe) |
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PRISEL(priority));
-}
-
-void sun4i_backend_cleanup_layer(struct sun4i_backend *backend,
-				 int layer)
-{
-	regmap_update_bits(backend->engine.regs,
-			   SUN4I_BACKEND_ATTCTL_REG0(layer),
-			   SUN4I_BACKEND_ATTCTL_REG0_LAY_VDOEN |
-			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN, 0);
 }
 
 static bool sun4i_backend_plane_uses_scaler(struct drm_plane_state *state)

@@ -89,8 +89,6 @@ static void sun4i_backend_layer_atomic_update(struct drm_plane *plane,
 	struct sun4i_backend *backend = layer->backend;
 	struct sun4i_frontend *frontend = backend->frontend;
 
-	sun4i_backend_cleanup_layer(backend, layer->id);
-
 	if (layer_state->uses_frontend) {
 		const struct drm_format_info *format =
 			plane->state->fb->format;
