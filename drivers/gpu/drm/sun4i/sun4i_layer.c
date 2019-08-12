@@ -204,10 +204,10 @@ static const uint64_t sun4i_layer_modifiers[] = {
 	DRM_FORMAT_MOD_INVALID
 };
 
-static struct sun4i_layer *sun4i_layer_init_one(struct drm_device *drm,
-						struct sun4i_backend *backend,
-						enum drm_plane_type type,
-						int id)
+static struct drm_plane *sun4i_layer_init_one(struct drm_device *drm,
+					      struct sun4i_backend *backend,
+					      enum drm_plane_type type,
+					      int id)
 {
 	const uint64_t *modifiers = sun4i_layer_modifiers;
 	const uint32_t *formats = sun4i_layer_formats;
@@ -246,34 +246,47 @@ static struct sun4i_layer *sun4i_layer_init_one(struct drm_device *drm,
 	drm_plane_create_zpos_property(&layer->plane, 0, 0,
 				       SUN4I_BACKEND_NUM_LAYERS - 1);
 
-	return layer;
+	return &layer->plane;
 }
 
-struct drm_plane **sun4i_layers_init(struct drm_device *drm,
-				     struct sunxi_engine *engine)
+struct drm_plane **
+sun4i_layers_init(struct drm_device *drm, struct sunxi_engine *engine,
+		  int *plane_count)
 {
 	struct drm_plane **planes;
 	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
-	int i;
+	struct drm_plane *plane;
+	int i, j = 0;
 
 	planes = kzalloc(SUN4I_BACKEND_NUM_LAYERS * sizeof(*planes),
 			 GFP_KERNEL);
 	if (!planes)
 		return ERR_PTR(-ENOMEM);
 
-	for (i = 0; i < SUN4I_BACKEND_NUM_LAYERS; i++) {
-		enum drm_plane_type type = i ? DRM_PLANE_TYPE_OVERLAY : DRM_PLANE_TYPE_PRIMARY;
-		struct sun4i_layer *layer;
+	/* this one is critical for kms, error out if it fails */
+	plane = sun4i_layer_init_one(drm, backend, DRM_PLANE_TYPE_PRIMARY, 0);
+	if (IS_ERR(plane)) {
+		DRM_DEV_ERROR(drm->dev, "%s(): primary layer init failed.\n",
+			      __func__);
+		return ERR_CAST(plane);
+	};
+	planes[j] = plane;
+	j++;
 
-		layer = sun4i_layer_init_one(drm, backend, type, i);
-		if (IS_ERR(layer)) {
-			dev_err(drm->dev, "Couldn't initialize %s plane\n",
-				i ? "overlay" : "primary");
-			return ERR_CAST(layer);
+	/* we do not care much if these fail */
+	for (i = 1; i < SUN4I_BACKEND_NUM_LAYERS; i++) {
+		plane = sun4i_layer_init_one(drm, backend,
+					     DRM_PLANE_TYPE_OVERLAY, i);
+		if (IS_ERR(plane)) {
+			DRM_DEV_ERROR(drm->dev, "%s() layer %d init failed.\n",
+				      __func__, i);
+			continue;
 		};
 
-		planes[i] = &layer->plane;
+		planes[j] = plane;
+		j++;
 	};
 
+	*plane_count = j;
 	return planes;
 }

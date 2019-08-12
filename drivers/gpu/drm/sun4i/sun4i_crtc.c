@@ -184,30 +184,46 @@ static const struct drm_crtc_funcs sun4i_crtc_funcs = {
 	.disable_vblank		= sun4i_crtc_disable_vblank,
 };
 
+/*
+ * Part of the akwardness here is the notion that a KMS CRTC has to have
+ * a primary plane at init time, and a cursor plane needs to be added
+ * here as well. This forces us to initialize planes before initializing
+ * the crtc, and to later go back and set the possible crtcs mask on all
+ * the planes...
+ */
 struct sun4i_crtc *sun4i_crtc_init(struct drm_device *drm,
 				   struct sunxi_engine *engine,
 				   struct sun4i_tcon *tcon)
 {
 	struct sun4i_crtc *scrtc;
 	struct drm_plane **planes;
+	int plane_count;
 	struct drm_plane *primary = NULL, *cursor = NULL;
 	int ret, i;
 
 	scrtc = devm_kzalloc(drm->dev, sizeof(*scrtc), GFP_KERNEL);
 	if (!scrtc)
 		return ERR_PTR(-ENOMEM);
+
 	scrtc->engine = engine;
 	scrtc->tcon = tcon;
 
+	if (!engine->ops && !engine->ops->layers_init) {
+		DRM_DEV_ERROR(drm->dev, "%s(): unable to init engine ops\n",
+			      __func__);
+		return ERR_PTR(-EINVAL);
+	}
+
 	/* Create our layers */
-	planes = sunxi_engine_layers_init(drm, engine);
+	planes = engine->ops->layers_init(drm, engine, &plane_count);
 	if (IS_ERR(planes)) {
-		dev_err(drm->dev, "Couldn't create the planes\n");
-		return NULL;
+		DRM_DEV_ERROR(drm->dev, "%s(): failed to create layers\n",
+			      __func__);
+		return ERR_CAST(planes);
 	}
 
 	/* find primary and cursor planes for drm_crtc_init_with_planes */
-	for (i = 0; planes[i]; i++) {
+	for (i = 0; i < plane_count; i++) {
 		struct drm_plane *plane = planes[i];
 
 		switch (plane->type) {
@@ -222,13 +238,11 @@ struct sun4i_crtc *sun4i_crtc_init(struct drm_device *drm,
 		}
 	}
 
-	ret = drm_crtc_init_with_planes(drm, &scrtc->crtc,
-					primary,
-					cursor,
-					&sun4i_crtc_funcs,
-					NULL);
+	ret = drm_crtc_init_with_planes(drm, &scrtc->crtc, primary,
+					cursor, &sun4i_crtc_funcs, NULL);
 	if (ret) {
-		dev_err(drm->dev, "Couldn't init DRM CRTC\n");
+		DRM_DEV_ERROR(drm->dev, "%s(): Couldn't init DRM CRTC\n",
+			      __func__);
 		return ERR_PTR(ret);
 	}
 
@@ -239,7 +253,7 @@ struct sun4i_crtc *sun4i_crtc_init(struct drm_device *drm,
 						   1);
 
 	/* Set possible_crtcs to this crtc for overlay planes */
-	for (i = 0; planes[i]; i++) {
+	for (i = 0; i < plane_count; i++) {
 		uint32_t possible_crtcs = drm_crtc_mask(&scrtc->crtc);
 		struct drm_plane *plane = planes[i];
 

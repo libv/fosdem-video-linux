@@ -266,11 +266,12 @@ static void sun8i_mixer_commit(struct sunxi_engine *engine)
 }
 
 static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
-					    struct sunxi_engine *engine)
+					    struct sunxi_engine *engine,
+					    int *plane_count)
 {
 	struct drm_plane **planes;
 	struct sun8i_mixer *mixer = engine_to_sun8i_mixer(engine);
-	int i;
+	int i, j = 0;
 
 	planes = kzalloc((mixer->cfg->vi_num + mixer->cfg->ui_num) *
 			 sizeof(*planes), GFP_KERNEL);
@@ -287,7 +288,8 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
 			return ERR_CAST(layer);
 		};
 
-		planes[i] = &layer->plane;
+		planes[j] = &layer->plane;
+		j++;
 	};
 
 	for (i = 0; i < mixer->cfg->ui_num; i++) {
@@ -300,9 +302,11 @@ static struct drm_plane **sun8i_layers_init(struct drm_device *drm,
 			return ERR_CAST(layer);
 		};
 
-		planes[mixer->cfg->vi_num + i] = &layer->plane;
+		planes[j] = &layer->plane;
+		j++;
 	};
 
+	*plane_count = j;
 	return planes;
 }
 
