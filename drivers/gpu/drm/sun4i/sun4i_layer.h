@@ -37,6 +37,7 @@ state_to_sun4i_layer_state(struct drm_plane_state *state)
 }
 
 struct drm_plane **sun4i_layers_init(struct drm_device *drm,
-				     struct sunxi_engine *engine);
+				     struct sunxi_engine *engine,
+				     int *plane_count);
 
 #endif /* _SUN4I_LAYER_H_ */

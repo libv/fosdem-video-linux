@@ -75,7 +75,8 @@ struct sunxi_engine_ops {
 	 * error pointer on failure.
 	 */
 	struct drm_plane **(*layers_init)(struct drm_device *drm,
-					  struct sunxi_engine *engine);
+					  struct sunxi_engine *engine,
+					  int *plane_count);
 
 	/**
 	 * @apply_color_correction:
@@ -145,19 +146,6 @@ sunxi_engine_commit(struct sunxi_engine *engine)
 {
 	if (engine->ops && engine->ops->commit)
 		engine->ops->commit(engine);
-}
-
-/**
- * sunxi_engine_layers_init() - Create planes (layers) for the engine
- * @drm:	pointer to the drm_device for which planes will be created
- * @engine:	pointer to the engine
- */
-static inline struct drm_plane **
-sunxi_engine_layers_init(struct drm_device *drm, struct sunxi_engine *engine)
-{
-	if (engine->ops && engine->ops->layers_init)
-		return engine->ops->layers_init(drm, engine);
-	return ERR_PTR(-ENOSYS);
 }
 
 /**
