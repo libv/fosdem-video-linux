@@ -579,8 +579,8 @@ void sun4i_frontend_update_coord(struct sun4i_frontend *frontend,
 	uint32_t luma_width, luma_height;
 	uint32_t chroma_width, chroma_height;
 
-	/* Set height and width */
-	DRM_DEBUG_DRIVER("Frontend size W: %u H: %u\n",
+	DRM_DEBUG_DRIVER("%s(): %dx%d -> %dx%d\n", __func__,
+			 state->src_w >> 16, state->src_h >> 16,
 			 state->crtc_w, state->crtc_h);
 
 	luma_width = state->src_w >> 16;

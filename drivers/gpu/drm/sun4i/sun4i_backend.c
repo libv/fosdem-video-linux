@@ -152,7 +152,9 @@ void sun4i_backend_update_layer_coord(struct sun4i_backend *backend,
 {
 	struct drm_plane_state *state = plane->state;
 
-	DRM_DEBUG_DRIVER("Updating layer %d\n", layer);
+	DRM_DEBUG_DRIVER("%s(%d: x = %d, y = %d, w = %d, h = %d);\n",
+			 __func__, layer, state->crtc_x, state->crtc_y,
+			 state->crtc_w, state->crtc_h);
 
 	/* Set height and width */
 	DRM_DEBUG_DRIVER("Layer size W: %u H: %u\n",
@@ -199,7 +201,8 @@ static void sun4i_backend_yuv_packed_format_set(struct sun4i_backend *backend,
 	    drm_format_info_is_yuv_sampling_422(format))
 		val |= SUN4I_BACKEND_IYUVCTL_FBFMT_PACKED_YUV422;
 	else
-		DRM_DEBUG_DRIVER("Unsupported YUV format (0x%x)\n", fmt);
+		DRM_ERROR("%s(%d): Unsupported YUV format (0x%x)\n",
+			  __func__, i, fmt);
 
 	/*
 	 * Allwinner seems to list the pixel sequence from right to left, while
@@ -219,8 +222,8 @@ static void sun4i_backend_yuv_packed_format_set(struct sun4i_backend *backend,
 		val |= SUN4I_BACKEND_IYUVCTL_FBPS_YUYV;
 		break;
 	default:
-		DRM_DEBUG_DRIVER("Unsupported YUV pixel sequence (0x%x)\n",
-				 fmt);
+		DRM_ERROR("%s(%d): Unsupported YUV pixel sequence (0x%x)\n",
+			  __func__, layer, fmt);
 	}
 
 	regmap_write(backend->engine.regs, SUN4I_BACKEND_IYUVCTL_REG, val);
@@ -680,12 +683,17 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 		struct drm_format_name_buf format_name;
 
 		if (!sun4i_backend_plane_is_supported(plane_state,
-						      &layer_state->uses_frontend))
+						      &layer_state->uses_frontend)) {
+			DRM_ERROR("%s(%d): plane %d scaling is not "
+				  "supported.\n", __func__, engine->id,
+				  plane->index);
 			return -EINVAL;
+		}
 
 		if (layer_state->uses_frontend) {
-			DRM_DEBUG_DRIVER("Using the frontend for plane %d\n",
-					 plane->index);
+			DRM_DEBUG_DRIVER("%s(%d): Using the frontend for "
+					 "plane %d\n", __func__,
+					 engine->id, plane->index);
 			num_frontend_planes++;
 		} else {
 			if (fb->format->is_yuv) {
@@ -751,15 +759,19 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 		num_alpha_planes_max++;
 
 	if (num_alpha_planes > num_alpha_planes_max) {
-		DRM_DEBUG_DRIVER("Too many planes with alpha, rejecting...\n");
+		DRM_ERROR("%s(%d): Too many planes with alpha.\n",
+			  __func__, engine->id);
 		return -EINVAL;
 	}
 
 	/* We can't have an alpha plane at the lowest position */
 	if (!backend->quirks->supports_lowest_plane_alpha &&
 	    (plane_states[0]->fb->format->has_alpha ||
-	    (plane_states[0]->alpha != DRM_BLEND_ALPHA_OPAQUE)))
+	     (plane_states[0]->alpha != DRM_BLEND_ALPHA_OPAQUE))) {
+		DRM_ERROR("%s(%d): Bottom plane cannot have alpha.\n",
+			  __func__, engine->id);
 		return -EINVAL;
+	}
 
 	for (i = 1; i < num_planes; i++) {
 		struct drm_plane_state *p_state = plane_states[i];
@@ -778,12 +790,14 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 
 	/* We can only have a single YUV plane at a time */
 	if (num_yuv_planes > SUN4I_BACKEND_NUM_YUV_PLANES) {
-		DRM_DEBUG_DRIVER("Too many planes with YUV, rejecting...\n");
+		DRM_ERROR("%s(%d): Too many planes use YUV.\n", __func__,
+			  engine->id);
 		return -EINVAL;
 	}
 
 	if (num_frontend_planes > SUN4I_BACKEND_NUM_FRONTEND_LAYERS) {
-		DRM_DEBUG_DRIVER("Too many planes going through the frontend, rejecting\n");
+		DRM_ERROR("%s(%d): Only one frontend plane possible.\n",
+			  __func__, engine->id);
 		return -EINVAL;
 	}
 

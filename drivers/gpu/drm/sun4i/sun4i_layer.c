@@ -120,12 +120,18 @@ static bool sun4i_layer_format_mod_supported(struct drm_plane *plane,
 					     uint32_t format, uint64_t modifier)
 {
 	struct sun4i_layer *layer = plane_to_sun4i_layer(plane);
+	bool supported;
 
-	if (IS_ERR_OR_NULL(layer->backend->frontend))
-		sun4i_backend_format_is_supported(format, modifier);
+	supported = sun4i_backend_format_is_supported(format, modifier);
+	if (!supported && !IS_ERR_OR_NULL(layer->backend->frontend))
+		supported =
+			sun4i_frontend_format_is_supported(format, modifier);
 
-	return sun4i_backend_format_is_supported(format, modifier) ||
-	       sun4i_frontend_format_is_supported(format, modifier);
+	DRM_DEBUG_DRIVER("%s(%d): is format 0x%08X supported: %s.\n",
+			 __func__, layer->id,
+			 format, supported ? "Yes" : "No");
+
+	return supported;
 }
 
 static const struct drm_plane_helper_funcs sun4i_backend_layer_helper_funcs = {
@@ -226,7 +232,8 @@ static struct sun4i_layer *sun4i_layer_init_one(struct drm_device *drm,
 				       formats, formats_len,
 				       modifiers, type, NULL);
 	if (ret) {
-		dev_err(drm->dev, "Couldn't initialize layer\n");
+		DRM_DEV_ERROR(drm->dev, "%s(): Couldn't initialize layer\n",
+			      __func__);
 		return ERR_PTR(ret);
 	}
 
