@@ -26,6 +26,7 @@
 #include "sun4i_frontend.h"
 #include "sun4i_layer.h"
 #include "sunxi_engine.h"
+#include "sun4i_backend_regs.h"
 
 struct sun4i_backend_quirks {
 	/* backend <-> TCON muxing selection done in backend */
