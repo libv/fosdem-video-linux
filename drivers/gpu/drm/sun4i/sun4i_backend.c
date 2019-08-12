@@ -147,8 +147,8 @@ static int sun4i_backend_crtc_mode_set(struct sunxi_engine *engine,
 	return 0;
 }
 
-int sun4i_backend_update_layer_coord(struct sun4i_backend *backend,
-				     int layer, struct drm_plane *plane)
+void sun4i_backend_update_layer_coord(struct sun4i_backend *backend,
+				      int layer, struct drm_plane *plane)
 {
 	struct drm_plane_state *state = plane->state;
 
@@ -167,8 +167,6 @@ int sun4i_backend_update_layer_coord(struct sun4i_backend *backend,
 	regmap_write(backend->engine.regs, SUN4I_BACKEND_LAYCOOR_REG(layer),
 		     SUN4I_BACKEND_LAYCOOR(state->crtc_x,
 					   state->crtc_y));
-
-	return 0;
 }
 
 static void sun4i_backend_yuv_packed_format_set(struct sun4i_backend *backend,
@@ -537,8 +535,8 @@ void sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
 	}
 }
 
-int sun4i_backend_update_layer_zpos(struct sun4i_backend *backend, int layer,
-				    struct drm_plane *plane)
+void sun4i_backend_update_layer_zpos(struct sun4i_backend *backend, int layer,
+				     struct drm_plane *plane)
 {
 	struct drm_plane_state *state = plane->state;
 	struct sun4i_layer_state *p_state = state_to_sun4i_layer_state(state);
@@ -552,8 +550,6 @@ int sun4i_backend_update_layer_zpos(struct sun4i_backend *backend, int layer,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PRISEL_MASK,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PIPESEL(p_state->pipe) |
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PRISEL(priority));
-
-	return 0;
 }
 
 void sun4i_backend_cleanup_layer(struct sun4i_backend *backend,
