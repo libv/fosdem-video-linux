@@ -380,18 +380,9 @@ void sun4i_backend_update_layer_alpha(struct sun4i_backend *backend,
 				   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN);
 }
 
-int sun4i_backend_update_layer_frontend(struct sun4i_backend *backend,
-					int layer, uint32_t fmt)
+void sun4i_backend_frontend_set(struct sun4i_backend *backend,
+				int layer, uint32_t format)
 {
-	u32 val;
-	int ret;
-
-	ret = sun4i_backend_drm_format_to_layer(fmt, &val);
-	if (ret) {
-		DRM_DEBUG_DRIVER("Invalid format\n");
-		return ret;
-	}
-
 	regmap_update_bits(backend->engine.regs,
 			   SUN4I_BACKEND_ATTCTL_REG0(layer),
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_VDOEN,
@@ -406,11 +397,25 @@ int sun4i_backend_update_layer_frontend(struct sun4i_backend *backend,
 				   SUN4I_BACKEND_ATTCTL_REG0(layer),
 				   0x10, 0);
 
-	regmap_update_bits(backend->engine.regs,
-			   SUN4I_BACKEND_ATTCTL_REG1(layer),
-			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT, val);
-
-	return 0;
+	/* set the format received from the frontend */
+	switch (format) {
+	case DRM_FORMAT_ARGB8888:
+		regmap_update_bits(backend->engine.regs,
+				   SUN4I_BACKEND_ATTCTL_REG1(layer),
+				   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT | 0x07,
+				   SUN4I_BACKEND_LAY_FBFMT_ARGB8888);
+		break;
+	default:
+		DRM_ERROR("%s(%d): unhandled format: 0x%08X\n",
+			  __func__, layer, format);
+		/* just select XRGB8888 for the time being */
+	case DRM_FORMAT_XRGB8888:
+		regmap_update_bits(backend->engine.regs,
+				   SUN4I_BACKEND_ATTCTL_REG1(layer),
+				   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT,
+				   SUN4I_BACKEND_LAY_FBFMT_XRGB8888);
+		break;
+	}
 }
 
 static void sun4i_backend_yuv_packed_buffer_set(struct sun4i_backend *backend,

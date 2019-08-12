@@ -480,8 +480,8 @@ bool sun4i_frontend_format_is_supported(uint32_t fmt, uint64_t modifier)
 }
 EXPORT_SYMBOL(sun4i_frontend_format_is_supported);
 
-int sun4i_frontend_update_formats(struct sun4i_frontend *frontend,
-				  struct drm_plane *plane, uint32_t out_fmt)
+int sun4i_frontend_format_set(struct sun4i_frontend *frontend,
+			      struct drm_plane *plane, uint32_t out_fmt)
 {
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
@@ -569,7 +569,7 @@ int sun4i_frontend_update_formats(struct sun4i_frontend *frontend,
 
 	return 0;
 }
-EXPORT_SYMBOL(sun4i_frontend_update_formats);
+EXPORT_SYMBOL(sun4i_frontend_format_set);
 
 void sun4i_frontend_update_coord(struct sun4i_frontend *frontend,
 				 struct drm_plane *plane)
