@@ -206,7 +206,8 @@ static const uint64_t sun4i_layer_modifiers[] = {
 
 static struct sun4i_layer *sun4i_layer_init_one(struct drm_device *drm,
 						struct sun4i_backend *backend,
-						enum drm_plane_type type)
+						enum drm_plane_type type,
+						int id)
 {
 	const uint64_t *modifiers = sun4i_layer_modifiers;
 	const uint32_t *formats = sun4i_layer_formats;
@@ -218,6 +219,7 @@ static struct sun4i_layer *sun4i_layer_init_one(struct drm_device *drm,
 	if (!layer)
 		return ERR_PTR(-ENOMEM);
 
+	layer->id = id;
 	layer->backend = backend;
 
 	if (IS_ERR_OR_NULL(backend->frontend)) {
@@ -230,7 +232,7 @@ static struct sun4i_layer *sun4i_layer_init_one(struct drm_device *drm,
 	ret = drm_universal_plane_init(drm, &layer->plane, 0,
 				       &sun4i_backend_layer_funcs,
 				       formats, formats_len,
-				       modifiers, type, NULL);
+				       modifiers, type, "Backend-%d", id);
 	if (ret) {
 		DRM_DEV_ERROR(drm->dev, "%s(): Couldn't initialize layer\n",
 			      __func__);
@@ -264,14 +266,13 @@ struct drm_plane **sun4i_layers_init(struct drm_device *drm,
 		enum drm_plane_type type = i ? DRM_PLANE_TYPE_OVERLAY : DRM_PLANE_TYPE_PRIMARY;
 		struct sun4i_layer *layer;
 
-		layer = sun4i_layer_init_one(drm, backend, type);
+		layer = sun4i_layer_init_one(drm, backend, type, i);
 		if (IS_ERR(layer)) {
 			dev_err(drm->dev, "Couldn't initialize %s plane\n",
 				i ? "overlay" : "primary");
 			return ERR_CAST(layer);
 		};
 
-		layer->id = i;
 		planes[i] = &layer->plane;
 	};
 
