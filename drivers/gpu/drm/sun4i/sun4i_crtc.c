@@ -247,5 +247,7 @@ struct sun4i_crtc *sun4i_crtc_init(struct drm_device *drm,
 			plane->possible_crtcs = possible_crtcs;
 	}
 
+	kfree(planes);
+
 	return scrtc;
 }

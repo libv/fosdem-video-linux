@@ -256,9 +256,8 @@ struct drm_plane **sun4i_layers_init(struct drm_device *drm,
 	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
 	int i;
 
-	/* We need to have a sentinel at the need, hence the overallocation */
-	planes = devm_kcalloc(drm->dev, SUN4I_BACKEND_NUM_LAYERS + 1,
-			      sizeof(*planes), GFP_KERNEL);
+	planes = kzalloc(SUN4I_BACKEND_NUM_LAYERS * sizeof(*planes),
+			 GFP_KERNEL);
 	if (!planes)
 		return ERR_PTR(-ENOMEM);
 
