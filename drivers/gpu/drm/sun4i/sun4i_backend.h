@@ -62,7 +62,5 @@ void sun4i_backend_update_layer_zpos(struct sun4i_backend *backend,
 				     int layer, struct drm_plane *plane);
 void sun4i_backend_update_layer_alpha(struct sun4i_backend *backend,
 				      int layer, struct drm_plane *plane);
-void sun4i_backend_cleanup_layer(struct sun4i_backend *backend,
-				 int layer);
 
 #endif /* _SUN4I_BACKEND_H_ */
