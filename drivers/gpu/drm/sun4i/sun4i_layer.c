@@ -17,6 +17,7 @@
 #include "sun4i_backend.h"
 #include "sun4i_frontend.h"
 #include "sun4i_layer.h"
+#include "sun4i_sprite.h"
 #include "sunxi_engine.h"
 
 #define SUN4I_LAYER_FORMATS_RGB \
@@ -323,6 +324,15 @@ static struct drm_plane *sun4i_layer_init(struct drm_device *drm,
 	return &layer->plane;
 }
 
+/*
+ * This is a limit of the kms infrastructure. Only a uint32_t is
+ * used in crtc_state as an active plane mask, for _all_ planes.
+ *
+ * We have up to 37 planes per CRTC... And yet KMS only has a 32 total.
+ * So give each of our CRTCs half of the KMS "space".
+ */
+#define KMS_PER_CRTC_PLANES_MAX 16
+
 struct drm_plane **
 sun4i_layers_init(struct drm_device *drm, struct sunxi_engine *engine,
 		  int *plane_count)
@@ -330,9 +340,9 @@ sun4i_layers_init(struct drm_device *drm, struct sunxi_engine *engine,
 	struct drm_plane **planes;
 	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
 	struct drm_plane *plane;
-	int j = 0;
+	int i, j = 0, sprite_start;
 
-	planes = kzalloc(SUN4I_BACKEND_NUM_LAYERS * sizeof(*planes),
+	planes = kzalloc(KMS_PER_CRTC_PLANES_MAX * sizeof(*planes),
 			 GFP_KERNEL);
 	if (!planes)
 		return ERR_PTR(-ENOMEM);
@@ -390,6 +400,23 @@ sun4i_layers_init(struct drm_device *drm, struct sunxi_engine *engine,
 		DRM_DEV_ERROR(drm->dev, "%s() layer 3 init failed.\n",
 			      __func__);
 	} else {
+		planes[j] = plane;
+		j++;
+	}
+
+	/* fill up the rest with sprites */
+	sprite_start = j;
+	for (i = 0; j < KMS_PER_CRTC_PLANES_MAX; i++) {
+		plane = sun4i_sprite_plane_init(drm, backend, i, sprite_start);
+		if (IS_ERR(plane)) {
+			/* we might have simply run out of sprites */
+			if (PTR_ERR(plane) != -ENODEV)
+				DRM_DEV_ERROR(drm->dev,
+					      "%s(): sprite %d init failed.\n",
+					      __func__, i);
+			break;
+		}
+
 		planes[j] = plane;
 		j++;
 	}
