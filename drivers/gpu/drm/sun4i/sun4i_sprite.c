@@ -39,6 +39,16 @@ sun4i_sprite_atomic_check(struct drm_plane *plane,
 
 	DRM_DEBUG_DRIVER("%s(%d);\n", __func__, sprite->id);
 
+	/* verify that we are not scaling */
+	if (((state->crtc_w << 16) != state->src_w) ||
+	    ((state->crtc_h << 16) != state->src_h)) {
+		DRM_ERROR("%s(%d.%d): scaling is not allowed.\n",
+			  __func__, sprite->backend->engine.id, sprite->id);
+		return -EINVAL;
+	}
+
+	/* todo: pluck the physical limits from my 2013 code */
+
 	return 0;
 }
 
