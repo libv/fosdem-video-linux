@@ -653,6 +653,35 @@ static void sun4i_backend_atomic_begin(struct sunxi_engine *engine,
 					 100, 50000));
 }
 
+/*
+ * The hardware is a bit unusual here.
+ *
+ * Even though it supports 4 layers, it does the composition in two separate
+ * steps.
+ *
+ * The first one is assigning a layer to one of its two pipes. If more that
+ * 1 layer is assigned to the same pipe, and if pixels overlaps, the pipe will
+ * take the pixel from the layer with the highest priority.
+ *
+ * The second step is the actual alpha blending, that takes the two pipes as
+ * input, and uses the potential alpha component to do the transparency
+ * between the two.
+ *
+ * This two-step scenario makes us unable to guarantee a robust alpha
+ * blending between the 4 layers in all situations, since this means that
+ * we need to have one layer with alpha at the lowest position of our two
+ * pipes.
+ *
+ * However, we cannot even do that on every platform, since the hardware has
+ * a bug where the lowest plane of the lowest pipe (pipe 0, priority 0), if
+ * it has any alpha, will discard the pixel data entirely and just display
+ * the pixels in the background color (black by default).
+ *
+ * This means that on the affected platforms, we effectively have only three
+ * valid configurations with alpha, all of them with the alpha being on pipe1
+ * with the lowest position, which can be 1, 2 or 3 depending on the number of
+ * planes and their zpos.
+ */
 static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 				      struct drm_crtc_state *crtc_state)
 {
@@ -720,39 +749,6 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 	/* All our planes were disabled, bail out */
 	if (!num_planes)
 		return 0;
-
-	/*
-	 * The hardware is a bit unusual here.
-	 *
-	 * Even though it supports 4 layers, it does the composition
-	 * in two separate steps.
-	 *
-	 * The first one is assigning a layer to one of its two
-	 * pipes. If more that 1 layer is assigned to the same pipe,
-	 * and if pixels overlaps, the pipe will take the pixel from
-	 * the layer with the highest priority.
-	 *
-	 * The second step is the actual alpha blending, that takes
-	 * the two pipes as input, and uses the potential alpha
-	 * component to do the transparency between the two.
-	 *
-	 * This two-step scenario makes us unable to guarantee a
-	 * robust alpha blending between the 4 layers in all
-	 * situations, since this means that we need to have one layer
-	 * with alpha at the lowest position of our two pipes.
-	 *
-	 * However, we cannot even do that on every platform, since
-	 * the hardware has a bug where the lowest plane of the lowest
-	 * pipe (pipe 0, priority 0), if it has any alpha, will
-	 * discard the pixel data entirely and just display the pixels
-	 * in the background color (black by default).
-	 *
-	 * This means that on the affected platforms, we effectively
-	 * have only three valid configurations with alpha, all of
-	 * them with the alpha being on pipe1 with the lowest
-	 * position, which can be 1, 2 or 3 depending on the number of
-	 * planes and their zpos.
-	 */
 
 	/* For platforms that are not affected by the issue described above. */
 	if (backend->quirks->supports_lowest_plane_alpha)
