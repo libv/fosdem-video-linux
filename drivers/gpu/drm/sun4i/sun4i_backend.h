@@ -39,6 +39,8 @@ struct sun4i_backend {
 	bool			frontend_teardown;
 
 	const struct sun4i_backend_quirks	*quirks;
+
+	uint32_t layers_mask;
 };
 
 static inline struct sun4i_backend *

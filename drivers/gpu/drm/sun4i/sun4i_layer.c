@@ -302,6 +302,8 @@ static struct drm_plane *sun4i_layer_init(struct drm_device *drm,
 	drm_plane_create_zpos_property(&layer->plane, 0, 0,
 				       SUN4I_BACKEND_NUM_LAYERS - 1);
 
+	backend->layers_mask |= 1 << layer->plane.index;
+
 	return &layer->plane;
 }
 

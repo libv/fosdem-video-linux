@@ -635,13 +635,14 @@ static int sun4i_backend_layers_atomic_check(struct sunxi_engine *engine,
 	unsigned int num_alpha_planes_max = 1;
 	unsigned int current_pipe = 0;
 	unsigned int i;
+	uint32_t layers_mask = crtc_state->plane_mask & backend->layers_mask;
 
 	DRM_DEBUG_DRIVER("Starting checking our planes\n");
 
-	if (!crtc_state->planes_changed)
+	if (!crtc_state->planes_changed || !layers_mask)
 		return 0;
 
-	drm_for_each_plane_mask(plane, drm, crtc_state->plane_mask) {
+	drm_for_each_plane_mask(plane, drm, layers_mask) {
 		struct drm_plane_state *plane_state =
 			drm_atomic_get_plane_state(state, plane);
 		struct drm_framebuffer *fb = plane_state->fb;
