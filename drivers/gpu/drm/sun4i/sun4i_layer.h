@@ -16,11 +16,11 @@ struct sun4i_layer {
 	struct sun4i_drv	*drv;
 	struct sun4i_backend	*backend;
 	int			id;
+	bool frontend;
 };
 
 struct sun4i_layer_state {
 	struct drm_plane_state	state;
-	unsigned int		pipe;
 	bool			uses_frontend;
 };
 

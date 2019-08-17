@@ -574,81 +574,16 @@ void sun4i_backend_update_layer_zpos(struct sun4i_backend *backend, int layer,
 				     struct drm_plane *plane)
 {
 	struct drm_plane_state *state = plane->state;
-	struct sun4i_layer_state *p_state = state_to_sun4i_layer_state(state);
 	unsigned int priority = state->normalized_zpos;
-	unsigned int pipe = p_state->pipe;
+	unsigned int pipe = (state->normalized_zpos >> 1) & 0x01;
 
 	DRM_DEBUG_DRIVER("Setting layer %d's priority to %d and pipe %d\n",
 			 layer, priority, pipe);
 	regmap_update_bits(backend->engine.regs, SUN4I_BACKEND_ATTCTL_REG0(layer),
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PIPESEL_MASK |
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PRISEL_MASK,
-			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PIPESEL(p_state->pipe) |
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PIPESEL(pipe) |
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PRISEL(priority));
-}
-
-static bool sun4i_backend_plane_uses_scaler(struct drm_plane_state *state)
-{
-	u16 src_h = state->src_h >> 16;
-	u16 src_w = state->src_w >> 16;
-
-	DRM_DEBUG_DRIVER("Input size %dx%d, output size %dx%d\n",
-			 src_w, src_h, state->crtc_w, state->crtc_h);
-
-	if ((state->crtc_h != src_h) || (state->crtc_w != src_w))
-		return true;
-
-	return false;
-}
-
-static bool sun4i_backend_plane_uses_frontend(struct drm_plane_state *state)
-{
-	struct sun4i_layer *layer = plane_to_sun4i_layer(state->plane);
-	struct sun4i_backend *backend = layer->backend;
-	uint32_t format = state->fb->format->format;
-	uint64_t modifier = state->fb->modifier;
-
-	if (IS_ERR(backend->frontend))
-		return false;
-
-	if (!sun4i_frontend_format_is_supported(format, modifier))
-		return false;
-
-	if (!sun4i_backend_format_is_supported(format, modifier))
-		return true;
-
-	/*
-	 * TODO: The backend alone allows 2x and 4x integer scaling, including
-	 * support for an alpha component (which the frontend doesn't support).
-	 * Use the backend directly instead of the frontend in this case, with
-	 * another test to return false.
-	 */
-
-	if (sun4i_backend_plane_uses_scaler(state))
-		return true;
-
-	/*
-	 * Here the format is supported by both the frontend and the backend
-	 * and no frontend scaling is required, so use the backend directly.
-	 */
-	return false;
-}
-
-static bool sun4i_backend_plane_is_supported(struct drm_plane_state *state,
-					     bool *uses_frontend)
-{
-	if (sun4i_backend_plane_uses_frontend(state)) {
-		*uses_frontend = true;
-		return true;
-	}
-
-	*uses_frontend = false;
-
-	/* Scaling is not supported without the frontend. */
-	if (sun4i_backend_plane_uses_scaler(state))
-		return false;
-
-	return true;
 }
 
 static void sun4i_backend_atomic_begin(struct sunxi_engine *engine,
@@ -691,123 +626,15 @@ static void sun4i_backend_atomic_begin(struct sunxi_engine *engine,
  * with the lowest position, which can be 1, 2 or 3 depending on the number of
  * planes and their zpos.
  */
+/*
+ * With frontend and yuv fixed to specific planes, and with scaling limited
+ * on the plane level check, this code is significantly simplified.
+ */
 static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 				      struct drm_crtc_state *crtc_state)
 {
-	struct drm_plane_state *plane_states[SUN4I_BACKEND_NUM_LAYERS] = { 0 };
-	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
-	struct drm_atomic_state *state = crtc_state->state;
-	struct drm_device *drm = state->dev;
-	struct drm_plane *plane;
-	unsigned int num_planes = 0;
-	unsigned int num_alpha_planes = 0;
-	unsigned int num_frontend_planes = 0;
-	unsigned int num_alpha_planes_max = 1;
-	unsigned int num_yuv_planes = 0;
-	unsigned int current_pipe = 0;
-	unsigned int i;
-
-	DRM_DEBUG_DRIVER("Starting checking our planes\n");
-
 	if (!crtc_state->planes_changed)
 		return 0;
-
-	drm_for_each_plane_mask(plane, drm, crtc_state->plane_mask) {
-		struct drm_plane_state *plane_state =
-			drm_atomic_get_plane_state(state, plane);
-		struct sun4i_layer_state *layer_state =
-			state_to_sun4i_layer_state(plane_state);
-		struct drm_framebuffer *fb = plane_state->fb;
-		struct drm_format_name_buf format_name;
-
-		if (!sun4i_backend_plane_is_supported(plane_state,
-						      &layer_state->uses_frontend)) {
-			DRM_ERROR("%s(%d): plane %d scaling is not "
-				  "supported.\n", __func__, engine->id,
-				  plane->index);
-			return -EINVAL;
-		}
-
-		if (layer_state->uses_frontend) {
-			DRM_DEBUG_DRIVER("%s(%d): Using the frontend for "
-					 "plane %d\n", __func__,
-					 engine->id, plane->index);
-			num_frontend_planes++;
-		} else {
-			if (fb->format->is_yuv) {
-				DRM_DEBUG_DRIVER("Plane FB format is YUV\n");
-				num_yuv_planes++;
-			}
-		}
-
-		DRM_DEBUG_DRIVER("Plane FB format is %s\n",
-				 drm_get_format_name(fb->format->format,
-						     &format_name));
-		if (fb->format->has_alpha || (plane_state->alpha != DRM_BLEND_ALPHA_OPAQUE))
-			num_alpha_planes++;
-
-		DRM_DEBUG_DRIVER("Plane zpos is %d\n",
-				 plane_state->normalized_zpos);
-
-		/* Sort our planes by Zpos */
-		plane_states[plane_state->normalized_zpos] = plane_state;
-
-		num_planes++;
-	}
-
-	/* All our planes were disabled, bail out */
-	if (!num_planes)
-		return 0;
-
-	/* For platforms that are not affected by the issue described above. */
-	if (backend->quirks->supports_lowest_plane_alpha)
-		num_alpha_planes_max++;
-
-	if (num_alpha_planes > num_alpha_planes_max) {
-		DRM_ERROR("%s(%d): Too many planes with alpha.\n",
-			  __func__, engine->id);
-		return -EINVAL;
-	}
-
-	/* We can't have an alpha plane at the lowest position */
-	if (!backend->quirks->supports_lowest_plane_alpha &&
-	    plane_states[0]->fb->format->has_alpha) {
-		DRM_ERROR("%s(%d): Bottom plane cannot use per-pixel alpha.\n",
-			  __func__, engine->id);
-		return -EINVAL;
-	}
-
-	for (i = 1; i < num_planes; i++) {
-		struct drm_plane_state *p_state = plane_states[i];
-		struct drm_framebuffer *fb = p_state->fb;
-		struct sun4i_layer_state *s_state = state_to_sun4i_layer_state(p_state);
-
-		/*
-		 * The only alpha position is the lowest plane of the
-		 * second pipe.
-		 */
-		if (fb->format->has_alpha || (p_state->alpha != DRM_BLEND_ALPHA_OPAQUE))
-			current_pipe++;
-
-		s_state->pipe = current_pipe;
-	}
-
-	/* We can only have a single YUV plane at a time */
-	if (num_yuv_planes > SUN4I_BACKEND_NUM_YUV_PLANES) {
-		DRM_ERROR("%s(%d): Too many planes use YUV.\n", __func__,
-			  engine->id);
-		return -EINVAL;
-	}
-
-	if (num_frontend_planes > SUN4I_BACKEND_NUM_FRONTEND_LAYERS) {
-		DRM_ERROR("%s(%d): Only one frontend plane possible.\n",
-			  __func__, engine->id);
-		return -EINVAL;
-	}
-
-	DRM_DEBUG_DRIVER("State valid with %u planes, %u alpha, %u video, %u YUV\n",
-			 num_planes, num_alpha_planes, num_frontend_planes,
-			 num_yuv_planes);
 
 	return 0;
 }
