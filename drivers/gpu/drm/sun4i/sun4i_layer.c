@@ -4,6 +4,8 @@
  * Copyright (C) 2015 NextThing Co
  *
  * Maxime Ripard <maxime.ripard@free-electrons.com>
+ *
+ * Copyright (c) 2019 Luc Verhaegen <libv@skynet.be>
  */
 
 #include <drm/drm_atomic_helper.h>
@@ -15,6 +17,58 @@
 #include "sun4i_frontend.h"
 #include "sun4i_layer.h"
 #include "sunxi_engine.h"
+
+#define SUN4I_LAYER_FORMATS_ALL \
+	DRM_FORMAT_ARGB8888, \
+	DRM_FORMAT_BGRA8888, \
+	DRM_FORMAT_XRGB8888, \
+	DRM_FORMAT_BGRX8888, \
+	DRM_FORMAT_RGB888, \
+	DRM_FORMAT_BGR888, \
+	DRM_FORMAT_ARGB1555, \
+	DRM_FORMAT_RGBA5551, \
+	DRM_FORMAT_ARGB4444, \
+	DRM_FORMAT_RGBA4444, \
+	DRM_FORMAT_RGB565
+
+#define SUN4I_LAYER_FORMATS_YUV \
+	DRM_FORMAT_UYVY, \
+	DRM_FORMAT_VYUY, \
+	DRM_FORMAT_YUYV, \
+	DRM_FORMAT_YVYU, \
+	DRM_FORMAT_R8_G8_B8
+
+static const uint32_t sun4i_layer_formats_frontend[] = {
+	SUN4I_LAYER_FORMATS_ALL,
+	SUN4I_LAYER_FORMATS_YUV,
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV16,
+	DRM_FORMAT_NV21,
+	DRM_FORMAT_NV61,
+	DRM_FORMAT_YUV411,
+	DRM_FORMAT_YUV420,
+	DRM_FORMAT_YUV422,
+	DRM_FORMAT_YUV444,
+	DRM_FORMAT_YVU411,
+	DRM_FORMAT_YVU420,
+	DRM_FORMAT_YVU422,
+	DRM_FORMAT_YVU444,
+};
+
+static const uint64_t sun4i_layer_format_modifiers_frontend[] = {
+	DRM_FORMAT_MOD_LINEAR,
+	DRM_FORMAT_MOD_ALLWINNER_TILED,
+	DRM_FORMAT_MOD_INVALID
+};
+
+static const uint32_t sun4i_layer_formats_yuv[] = {
+	SUN4I_LAYER_FORMATS_ALL,
+	SUN4I_LAYER_FORMATS_YUV,
+};
+
+static const uint32_t sun4i_layer_formats_all[] = {
+	SUN4I_LAYER_FORMATS_ALL,
+};
 
 static void sun4i_backend_layer_reset(struct drm_plane *plane)
 {
@@ -134,8 +188,54 @@ static bool sun4i_layer_format_mod_supported(struct drm_plane *plane,
 	return supported;
 }
 
+/*
+ * Only scale when we have the frontend.
+ */
+static int sun4i_backend_layer_atomic_check(struct drm_plane *plane,
+					    struct drm_plane_state *state)
+{
+	struct sun4i_layer *layer = plane_to_sun4i_layer(plane);
+	struct sun4i_layer_state *layer_state =
+		state_to_sun4i_layer_state(state);
+
+	DRM_DEBUG("%s(%d.%d);\n", __func__,
+		  layer->backend->engine.id, layer->id);
+
+	/* Are we scaling? */
+	if (((state->crtc_w << 16) != state->src_w) ||
+	    ((state->crtc_h << 16) != state->src_h)) {
+
+		if (!layer->frontend) {
+			DRM_ERROR("%s(%d.%d): this layer does not support "
+				  "scaling.\n", __func__,
+				  layer->backend->engine.id, layer->id);
+			return -EINVAL;
+		}
+
+		layer_state->uses_frontend = true;
+	} else if (layer->frontend)
+		layer_state->uses_frontend = false;
+
+	/* check whether we have a frontend specific format */
+	if (layer->frontend && !layer_state->uses_frontend) {
+		/* yes, atomic_check gets called for unused planes */
+		if (state->fb) {
+			const struct drm_format_info *format =
+				state->fb->format;
+
+			if (format->is_yuv || (format->num_planes > 1))
+				layer_state->uses_frontend = true;
+		}
+	}
+
+	/* todo: test physical limits */
+
+	return 0;
+}
+
 static const struct drm_plane_helper_funcs sun4i_backend_layer_helper_funcs = {
 	.prepare_fb	= drm_gem_fb_prepare_fb,
+	.atomic_check = sun4i_backend_layer_atomic_check,
 	.atomic_disable	= sun4i_backend_layer_atomic_disable,
 	.atomic_update	= sun4i_backend_layer_atomic_update,
 };
@@ -150,69 +250,15 @@ static const struct drm_plane_funcs sun4i_backend_layer_funcs = {
 	.format_mod_supported	= sun4i_layer_format_mod_supported,
 };
 
-static const uint32_t sun4i_layer_formats[] = {
-	DRM_FORMAT_ARGB8888,
-	DRM_FORMAT_ARGB4444,
-	DRM_FORMAT_ARGB1555,
-	DRM_FORMAT_BGRX8888,
-	DRM_FORMAT_RGBA5551,
-	DRM_FORMAT_RGBA4444,
-	DRM_FORMAT_RGB888,
-	DRM_FORMAT_RGB565,
-	DRM_FORMAT_NV12,
-	DRM_FORMAT_NV16,
-	DRM_FORMAT_NV21,
-	DRM_FORMAT_NV61,
-	DRM_FORMAT_UYVY,
-	DRM_FORMAT_VYUY,
-	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_YUV411,
-	DRM_FORMAT_YUV420,
-	DRM_FORMAT_YUV422,
-	DRM_FORMAT_YUV444,
-	DRM_FORMAT_YUYV,
-	DRM_FORMAT_YVU411,
-	DRM_FORMAT_YVU420,
-	DRM_FORMAT_YVU422,
-	DRM_FORMAT_YVU444,
-	DRM_FORMAT_YVYU,
-	DRM_FORMAT_R8_G8_B8,
-};
-
-static const uint32_t sun4i_backend_layer_formats[] = {
-	DRM_FORMAT_ARGB8888,
-	DRM_FORMAT_BGRA8888,
-	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_BGRX8888,
-	DRM_FORMAT_RGB888,
-	DRM_FORMAT_BGR888,
-	DRM_FORMAT_ARGB1555,
-	DRM_FORMAT_ARGB4444,
-	DRM_FORMAT_RGB565,
-	DRM_FORMAT_RGBA4444,
-	DRM_FORMAT_RGBA5551,
-	DRM_FORMAT_UYVY,
-	DRM_FORMAT_VYUY,
-	DRM_FORMAT_YUYV,
-	DRM_FORMAT_YVYU,
-	DRM_FORMAT_R8_G8_B8,
-};
-
-static const uint64_t sun4i_layer_modifiers[] = {
-	DRM_FORMAT_MOD_LINEAR,
-	DRM_FORMAT_MOD_ALLWINNER_TILED,
-	DRM_FORMAT_MOD_INVALID
-};
-
-static struct drm_plane *sun4i_layer_init_one(struct drm_device *drm,
-					      struct sun4i_backend *backend,
-					      enum drm_plane_type type,
-					      int id)
+static struct drm_plane *sun4i_layer_init(struct drm_device *drm,
+					  struct sun4i_backend *backend,
+					  enum drm_plane_type type,
+					  int id, bool frontend, bool yuv)
 {
-	const uint64_t *modifiers = sun4i_layer_modifiers;
-	const uint32_t *formats = sun4i_layer_formats;
-	unsigned int formats_len = ARRAY_SIZE(sun4i_layer_formats);
 	struct sun4i_layer *layer;
+	const uint64_t *modifiers;
+	const uint32_t *formats;
+	unsigned int formats_len;
 	int ret;
 
 	layer = devm_kzalloc(drm->dev, sizeof(*layer), GFP_KERNEL);
@@ -221,10 +267,20 @@ static struct drm_plane *sun4i_layer_init_one(struct drm_device *drm,
 
 	layer->id = id;
 	layer->backend = backend;
+	layer->frontend = frontend;
+	layer->yuv = yuv;
 
-	if (IS_ERR_OR_NULL(backend->frontend)) {
-		formats = sun4i_backend_layer_formats;
-		formats_len = ARRAY_SIZE(sun4i_backend_layer_formats);
+	if (layer->frontend) {
+		formats = sun4i_layer_formats_frontend;
+		formats_len = ARRAY_SIZE(sun4i_layer_formats_frontend);
+		modifiers = sun4i_layer_format_modifiers_frontend;
+	} else if (layer->yuv) {
+		formats = sun4i_layer_formats_yuv;
+		formats_len = ARRAY_SIZE(sun4i_layer_formats_yuv);
+		modifiers = NULL;
+	} else {
+		formats = sun4i_layer_formats_all;
+		formats_len = ARRAY_SIZE(sun4i_layer_formats_all);
 		modifiers = NULL;
 	}
 
@@ -256,15 +312,19 @@ sun4i_layers_init(struct drm_device *drm, struct sunxi_engine *engine,
 	struct drm_plane **planes;
 	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
 	struct drm_plane *plane;
-	int i, j = 0;
+	int j = 0;
 
 	planes = kzalloc(SUN4I_BACKEND_NUM_LAYERS * sizeof(*planes),
 			 GFP_KERNEL);
 	if (!planes)
 		return ERR_PTR(-ENOMEM);
 
-	/* this one is critical for kms, error out if it fails */
-	plane = sun4i_layer_init_one(drm, backend, DRM_PLANE_TYPE_PRIMARY, 0);
+	/*
+	 * Our first layer, primary, rgb, no scaling.
+	 * This one is critical for kms, error out if it fails
+	 */
+	plane = sun4i_layer_init(drm, backend, DRM_PLANE_TYPE_PRIMARY,
+				 0, false, false);
 	if (IS_ERR(plane)) {
 		DRM_DEV_ERROR(drm->dev, "%s(): primary layer init failed.\n",
 			      __func__);
@@ -273,19 +333,48 @@ sun4i_layers_init(struct drm_device *drm, struct sunxi_engine *engine,
 	planes[j] = plane;
 	j++;
 
-	/* we do not care much if these fail */
-	for (i = 1; i < SUN4I_BACKEND_NUM_LAYERS; i++) {
-		plane = sun4i_layer_init_one(drm, backend,
-					     DRM_PLANE_TYPE_OVERLAY, i);
-		if (IS_ERR(plane)) {
-			DRM_DEV_ERROR(drm->dev, "%s() layer %d init failed.\n",
-				      __func__, i);
-			continue;
-		};
+	/*
+	 * From now on, we only make some noise when something fails.
+	 * Working display is more important than working overlays.
+	 */
 
+	/* Our second layer, try to use the scaler */
+	if (IS_ERR_OR_NULL(backend->frontend))
+		plane = sun4i_layer_init(drm, backend, DRM_PLANE_TYPE_OVERLAY,
+					 1, false, false);
+	else
+		plane = sun4i_layer_init(drm, backend, DRM_PLANE_TYPE_OVERLAY,
+					 1, true, false);
+	if (IS_ERR(plane)) {
+		DRM_DEV_ERROR(drm->dev, "%s() layer 1 init failed.\n",
+			      __func__);
+		/* if it fails, continue anyway */
+	} else {
 		planes[j] = plane;
 		j++;
-	};
+	}
+
+	/* Our third layer, use yuv */
+	plane = sun4i_layer_init(drm, backend, DRM_PLANE_TYPE_OVERLAY,
+				 2, false, true);
+	if (IS_ERR(plane)) {
+		DRM_DEV_ERROR(drm->dev, "%s() layer 2 init failed.\n",
+			      __func__);
+	} else {
+		planes[j] = plane;
+		j++;
+	}
+
+	/* final layer, rgb only */
+	plane = sun4i_layer_init(drm, backend, DRM_PLANE_TYPE_OVERLAY,
+				 1, false, false);
+	if (IS_ERR(plane)) {
+		DRM_DEV_ERROR(drm->dev, "%s() layer 3 init failed.\n",
+			      __func__);
+	} else {
+		planes[j] = plane;
+		j++;
+	}
 
 	*plane_count = j;
 	return planes;

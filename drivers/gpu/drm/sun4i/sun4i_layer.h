@@ -16,6 +16,8 @@ struct sun4i_layer {
 	struct sun4i_drv	*drv;
 	struct sun4i_backend	*backend;
 	int			id;
+	bool frontend;
+	bool yuv;
 };
 
 struct sun4i_layer_state {
