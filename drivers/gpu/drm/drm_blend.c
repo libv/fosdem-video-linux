@@ -372,6 +372,7 @@ int drm_plane_create_zpos_property(struct drm_plane *plane,
 	drm_object_attach_property(&plane->base, prop, zpos);
 
 	plane->zpos_property = prop;
+	plane->zpos_initial = zpos;
 
 	if (plane->state) {
 		plane->state->zpos = zpos;
@@ -411,6 +412,7 @@ int drm_plane_create_zpos_immutable_property(struct drm_plane *plane,
 	drm_object_attach_property(&plane->base, prop, zpos);
 
 	plane->zpos_property = prop;
+	plane->zpos_initial = zpos;
 
 	if (plane->state) {
 		plane->state->zpos = zpos;

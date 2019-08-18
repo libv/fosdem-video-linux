@@ -247,6 +247,7 @@ void __drm_atomic_helper_plane_state_reset(struct drm_plane_state *plane_state,
 	plane_state->rotation = DRM_MODE_ROTATE_0;
 
 	plane_state->alpha = DRM_BLEND_ALPHA_OPAQUE;
+	plane_state->zpos = plane->zpos_initial;
 	plane_state->pixel_blend_mode = DRM_MODE_BLEND_PREMULTI;
 }
 EXPORT_SYMBOL(__drm_atomic_helper_plane_state_reset);
