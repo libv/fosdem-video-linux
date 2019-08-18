@@ -674,6 +674,8 @@ struct drm_plane {
 	 * drm_plane_create_zpos_property().
 	 */
 	struct drm_property *zpos_property;
+	unsigned int zpos_initial;
+
 	/**
 	 * @rotation_property:
 	 * Optional rotation property for this plane. See
