@@ -5,6 +5,7 @@
 #include <linux/regmap.h>
 
 #include <drm/drmP.h>
+#include <drm/drm_atomic.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_atomic_state_helper.h>
@@ -27,10 +28,73 @@ struct sun4i_sprite {
 	int id;
 };
 
+struct sun4i_sprite_state {
+	struct drm_plane_state state;
+
+	/* position in our linked list, depending on zpos */
+	int block_id;
+};
+
 static inline struct sun4i_sprite *
 sun4i_sprite_from_drm_plane(struct drm_plane *plane)
 {
 	return container_of(plane, struct sun4i_sprite, plane);
+}
+
+static inline struct sun4i_sprite_state *
+sun4i_sprite_state_from_drm_state(struct drm_plane_state *state)
+{
+	return container_of(state, struct sun4i_sprite_state, state);
+}
+
+
+static void
+sun4i_sprite_plane_reset(struct drm_plane *plane)
+{
+	struct sun4i_sprite_state *state;
+
+	if (plane->state) {
+		state = sun4i_sprite_state_from_drm_state(plane->state);
+
+		__drm_atomic_helper_plane_destroy_state(&state->state);
+
+		kfree(state);
+		plane->state = NULL;
+	}
+
+	state = kzalloc(sizeof(*state), GFP_KERNEL);
+	if (state)
+		__drm_atomic_helper_plane_reset(plane, &state->state);
+}
+
+static struct drm_plane_state *
+sun4i_sprite_atomic_state_duplicate(struct drm_plane *plane)
+{
+	struct sun4i_sprite_state *orig =
+		sun4i_sprite_state_from_drm_state(plane->state);
+	struct sun4i_sprite_state *copy;
+
+	copy = kzalloc(sizeof(*copy), GFP_KERNEL);
+	if (!copy)
+		return NULL;
+
+	__drm_atomic_helper_plane_duplicate_state(plane, &copy->state);
+
+	copy->block_id = orig->block_id;
+
+	return &copy->state;
+}
+
+static void
+sun4i_sprite_atomic_state_destroy(struct drm_plane *plane,
+				  struct drm_plane_state *plane_state)
+{
+	struct sun4i_sprite_state *state =
+		sun4i_sprite_state_from_drm_state(plane_state);
+
+	__drm_atomic_helper_plane_destroy_state(plane_state);
+
+	kfree(state);
 }
 
 static int
@@ -54,12 +118,22 @@ sun4i_sprite_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
+/*
+ * Figures out the block ordering, as in KMS it apaprently is allowed to
+ * set multiple planes to the same zpos.
+ */
 int
 sun4i_sprites_crtc_atomic_check(struct sunxi_engine *engine,
 				struct drm_crtc_state *crtc_state)
 {
 	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
 	uint32_t sprites_mask = crtc_state->plane_mask & backend->sprites_mask;
+	struct drm_atomic_state *atomic_state = crtc_state->state;
+	struct drm_device *drm = atomic_state->dev;
+	struct drm_plane *plane;
+	struct sun4i_sprite_state *table[SUN4I_BE_SPRITE_COUNT] = { NULL };
+	unsigned int lowest = 0xFF, highest = 0, zpos;
+	int count, i, block;
 
 	/*
 	 * Somehow, this feels like it might not be as reliable as i think it
@@ -73,6 +147,34 @@ sun4i_sprites_crtc_atomic_check(struct sunxi_engine *engine,
 	if (!sprites_mask)
 		return 0;
 
+	/* gather a list of candidates */
+	count = 0;
+	drm_for_each_plane_mask(plane, drm, sprites_mask) {
+		struct drm_plane_state *plane_state =
+			drm_atomic_get_plane_state(atomic_state, plane);
+		struct sun4i_sprite_state *state =
+			sun4i_sprite_state_from_drm_state(plane_state);
+
+		if (plane_state->zpos < lowest)
+			lowest = plane_state->zpos;
+		if (plane_state->zpos > highest)
+			highest = plane_state->zpos;
+
+		table[count] = state;
+		count++;
+	}
+
+	/* zpos might repeat, so we need to count up separately */
+	block = 0;
+	for (zpos = lowest; zpos <= highest; zpos++) {
+		for (i = 0; i < count; i++) {
+			if (table[i]->state.zpos == zpos) {
+				table[i]->block_id = block;
+				block++;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -82,23 +184,28 @@ sun4i_sprite_atomic_update(struct drm_plane *plane,
 {
 	struct sun4i_sprite *sprite = sun4i_sprite_from_drm_plane(plane);
 	struct drm_plane_state *plane_state = plane->state;
+	struct sun4i_sprite_state *state =
+		sun4i_sprite_state_from_drm_state(plane_state);
 	struct drm_framebuffer *fb = plane_state->fb;
 	struct sunxi_engine *engine = &sprite->backend->engine;
+	int i = state->block_id;
 	dma_addr_t paddr;
 
 	DRM_DEBUG_DRIVER("%s(%d);\n", __func__, sprite->id);
 
-	/* select ARGB8888 */
-	regmap_write(engine->regs, SUN4I_BACKEND_SPRFMTCTL_REG, 0);
-	/* disable alpha */
-	regmap_write(engine->regs, SUN4I_BACKEND_SPRALPHACTL_REG, 0);
+	if (!i) {
+		/* select ARGB8888 */
+		regmap_write(engine->regs, SUN4I_BACKEND_SPRFMTCTL_REG, 0);
+		/* disable alpha */
+		regmap_write(engine->regs, SUN4I_BACKEND_SPRALPHACTL_REG, 0);
+	}
 
-	regmap_write(engine->regs, SUN4I_BACKEND_SPRCOORCTL_REG(0),
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRCOORCTL_REG(i),
 		     ((plane_state->crtc_y & 0xFFFF) << 16) |
 		     (plane_state->crtc_x & 0xFFFF));
 
 	/* Empty next block id, we set that later */
-	regmap_write(engine->regs, SUN4I_BACKEND_SPRATTCTL_REG(0),
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRATTCTL_REG(i),
 		     (((plane_state->crtc_h - 1) & 0xFFF) << 20) |
 		     (((plane_state->crtc_w - 1) & 0xFFF) << 8));
 
@@ -108,13 +215,17 @@ sun4i_sprite_atomic_update(struct drm_plane *plane,
 	 */
 	paddr = drm_fb_cma_get_gem_addr(fb, plane_state, 0);
 
-	regmap_write(engine->regs, SUN4I_BACKEND_SPRADD_REG(0), paddr);
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRADD_REG(i), paddr);
 
-	regmap_write(engine->regs, SUN4I_BACKEND_SPRLINEWIDTH_REG(0),
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRLINEWIDTH_REG(i),
 		     fb->pitches[0] << 3);
 
-	/* enable */
-	regmap_write(engine->regs, SUN4I_BACKEND_SPREN_REG, 0x01);
+	if (!i) /* enable */
+		regmap_write(engine->regs, SUN4I_BACKEND_SPREN_REG, 0x01);
+	else /* link previous block to this block */
+		regmap_update_bits(engine->regs,
+				   SUN4I_BACKEND_SPRATTCTL_REG(i - 1),
+				   0x3F, i);
 }
 
 void
@@ -156,13 +267,13 @@ static const struct drm_plane_helper_funcs sun4i_sprite_helper_funcs = {
 };
 
 static const struct drm_plane_funcs sun4i_sprite_drm_plane_funcs = {
-	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
-	.atomic_duplicate_state	= drm_atomic_helper_plane_duplicate_state,
+	.atomic_destroy_state = sun4i_sprite_atomic_state_destroy,
+	.atomic_duplicate_state	= sun4i_sprite_atomic_state_duplicate,
 
 	.destroy = drm_plane_cleanup,
 
 	.disable_plane = drm_atomic_helper_disable_plane,
-	.reset = drm_atomic_helper_plane_reset,
+	.reset = sun4i_sprite_plane_reset,
 	.update_plane = drm_atomic_helper_update_plane,
 };
 
