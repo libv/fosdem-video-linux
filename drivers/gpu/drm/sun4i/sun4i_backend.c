@@ -30,6 +30,7 @@
 #include "sun4i_layer.h"
 #include "sunxi_engine.h"
 #include "sun4i_backend_regs.h"
+#include "sun4i_sprite.h"
 
 struct sun4i_backend_quirks {
 	/* backend <-> TCON muxing selection done in backend */
@@ -633,8 +634,14 @@ static void sun4i_backend_atomic_begin(struct sunxi_engine *engine,
 static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 				      struct drm_crtc_state *crtc_state)
 {
+	int ret;
+
 	if (!crtc_state->planes_changed)
 		return 0;
+
+	ret = sun4i_sprites_crtc_atomic_check(engine, crtc_state);
+	if (ret)
+		return ret;
 
 	return 0;
 }
