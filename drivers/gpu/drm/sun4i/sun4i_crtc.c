@@ -81,11 +81,13 @@ static void sun4i_crtc_atomic_flush(struct drm_crtc *crtc,
 				    struct drm_crtc_state *old_state)
 {
 	struct sun4i_crtc *scrtc = drm_crtc_to_sun4i_crtc(crtc);
+	struct sunxi_engine *engine = scrtc->engine;
 	struct drm_pending_vblank_event *event = crtc->state->event;
 
 	DRM_DEBUG_DRIVER("Committing plane changes\n");
 
-	sunxi_engine_commit(scrtc->engine);
+	if (engine->ops && engine->ops->commit)
+		engine->ops->commit(crtc, old_state);
 
 	if (event) {
 		crtc->state->event = NULL;
