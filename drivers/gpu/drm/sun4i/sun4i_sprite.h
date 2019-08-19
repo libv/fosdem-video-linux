@@ -10,4 +10,7 @@ struct drm_plane *sun4i_sprite_plane_init(struct drm_device *drm,
 					  struct sun4i_backend *backend,
 					  int id, int zpos_start);
 
+int sun4i_sprites_crtc_atomic_check(struct sunxi_engine *engine,
+				    struct drm_crtc_state *crtc_state);
+
 #endif /* _SUN4I_SPRITE_H_ */

@@ -41,6 +41,7 @@ struct sun4i_backend {
 	const struct sun4i_backend_quirks	*quirks;
 
 	uint32_t layers_mask;
+	uint32_t sprites_mask;
 };
 
 static inline struct sun4i_backend *

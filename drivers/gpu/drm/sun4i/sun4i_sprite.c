@@ -52,6 +52,28 @@ sun4i_sprite_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
+int
+sun4i_sprites_crtc_atomic_check(struct sunxi_engine *engine,
+				struct drm_crtc_state *crtc_state)
+{
+	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
+	uint32_t sprites_mask = crtc_state->plane_mask & backend->sprites_mask;
+
+	/*
+	 * Somehow, this feels like it might not be as reliable as i think it
+	 * should be. -- libv
+	 */
+	/* no zpos change, no need for us to get involved! */
+	if (!crtc_state->zpos_changed)
+		return 0;
+
+	/* no sprites enabled, no need to calculate anything */
+	if (!sprites_mask)
+		return 0;
+
+	return 0;
+}
+
 static void
 sun4i_sprite_atomic_update(struct drm_plane *plane,
 			   struct drm_plane_state *plane_state_old)
@@ -136,6 +158,8 @@ sun4i_sprite_plane_init(struct drm_device *drm,
 	//drm_plane_create_alpha_property(&sprite->plane);
 	drm_plane_create_zpos_property(&sprite->plane, zpos_start + id,
 				       zpos_start, zpos_end);
+
+	backend->sprites_mask |= 1 << sprite->plane.index;
 
 	return &sprite->plane;
 }
