@@ -22,6 +22,7 @@
 #include <drm/drm_probe_helper.h>
 
 #include "sun4i_drv.h"
+#include "sun4i_crtc.h"
 #include "sun8i_mixer.h"
 #include "sun8i_ui_layer.h"
 #include "sun8i_vi_layer.h"
@@ -248,8 +249,12 @@ int sun8i_mixer_drm_format_to_hw(u32 format, u32 *hw_format)
 	return -EINVAL;
 }
 
-static void sun8i_mixer_commit(struct sunxi_engine *engine)
+static void sun8i_mixer_commit(struct drm_crtc *crtc,
+			       struct drm_crtc_state *state_old)
 {
+	struct sun4i_crtc *scrtc = drm_crtc_to_sun4i_crtc(crtc);
+	struct sunxi_engine *engine = scrtc->engine;
+
 	DRM_DEBUG_DRIVER("Committing changes\n");
 
 	regmap_write(engine->regs, SUN8I_MIXER_GLOBAL_DBUFF,

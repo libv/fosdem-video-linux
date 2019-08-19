@@ -6,6 +6,7 @@
 #ifndef _SUNXI_ENGINE_H_
 #define _SUNXI_ENGINE_H_
 
+struct drm_crtc;
 struct drm_plane;
 struct drm_device;
 struct drm_crtc_state;
@@ -59,7 +60,8 @@ struct sunxi_engine_ops {
 	 *
 	 * This function is optional.
 	 */
-	void (*commit)(struct sunxi_engine *engine);
+	void (*commit)(struct drm_crtc *crtc,
+		       struct drm_crtc_state *old_state);
 
 	/**
 	 * @layers_init:
@@ -136,17 +138,6 @@ struct sunxi_engine {
 	/* Engine list management */
 	struct list_head		list;
 };
-
-/**
- * sunxi_engine_commit() - commit all changes of the engine
- * @engine:	pointer to the engine
- */
-static inline void
-sunxi_engine_commit(struct sunxi_engine *engine)
-{
-	if (engine->ops && engine->ops->commit)
-		engine->ops->commit(engine);
-}
 
 /**
  * sunxi_engine_apply_color_correction - Apply the RGB2YUV color correction

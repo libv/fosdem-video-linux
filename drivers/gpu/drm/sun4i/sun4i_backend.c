@@ -23,6 +23,7 @@
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_probe_helper.h>
 
+#include "sun4i_crtc.h"
 #include "sun4i_backend.h"
 #include "sun4i_drv.h"
 #include "sun4i_frontend.h"
@@ -68,8 +69,12 @@ static void sun4i_backend_disable_color_correction(struct sunxi_engine *engine)
 			   SUN4I_BACKEND_OCCTL_ENABLE, 0);
 }
 
-static void sun4i_backend_commit(struct sunxi_engine *engine)
+static void sun4i_backend_commit(struct drm_crtc *crtc,
+				 struct drm_crtc_state *state_old)
 {
+	struct sun4i_crtc *scrtc = drm_crtc_to_sun4i_crtc(crtc);
+	struct sunxi_engine *engine = scrtc->engine;
+
 	DRM_DEBUG_DRIVER("Committing changes\n");
 
 	regmap_write(engine->regs, SUN4I_BACKEND_REGBUFFCTL_REG,
