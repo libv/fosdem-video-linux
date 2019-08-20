@@ -239,6 +239,8 @@ void sun4i_frontend_update_buffer(struct sun4i_frontend *frontend,
 
 	switch (fb->format->format) {
 	/* single plane */
+	case DRM_FORMAT_BGRA8888:
+	case DRM_FORMAT_ARGB8888:
 	case DRM_FORMAT_BGRX8888:
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_UYVY:
@@ -380,6 +382,7 @@ sun4i_frontend_drm_format_to_input_sequence(const struct drm_format_info *format
 	}
 
 	switch (format->format) {
+	case DRM_FORMAT_BGRA8888:
 	case DRM_FORMAT_BGRX8888:
 		*val = SUN4I_FRONTEND_INPUT_FMT_DATA_PS_BGRX;
 		return 0;
@@ -409,6 +412,7 @@ sun4i_frontend_drm_format_to_input_sequence(const struct drm_format_info *format
 		return 0;
 
 	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
 		*val = SUN4I_FRONTEND_INPUT_FMT_DATA_PS_XRGB;
 		return 0;
 
@@ -433,10 +437,12 @@ static int sun4i_frontend_drm_format_to_output_fmt(uint32_t fmt, u32 *val)
 {
 	switch (fmt) {
 	case DRM_FORMAT_BGRX8888:
+	case DRM_FORMAT_BGRA8888:
 		*val = SUN4I_FRONTEND_OUTPUT_FMT_DATA_FMT_BGRX8888;
 		return 0;
 
 	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
 		*val = SUN4I_FRONTEND_OUTPUT_FMT_DATA_FMT_XRGB8888;
 		return 0;
 
@@ -446,6 +452,7 @@ static int sun4i_frontend_drm_format_to_output_fmt(uint32_t fmt, u32 *val)
 }
 
 static const uint32_t sun4i_frontend_formats[] = {
+	DRM_FORMAT_BGRA8888,
 	DRM_FORMAT_BGRX8888,
 	DRM_FORMAT_NV12,
 	DRM_FORMAT_NV16,
@@ -453,6 +460,7 @@ static const uint32_t sun4i_frontend_formats[] = {
 	DRM_FORMAT_NV61,
 	DRM_FORMAT_UYVY,
 	DRM_FORMAT_VYUY,
+	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_YUV411,
 	DRM_FORMAT_YUV420,
