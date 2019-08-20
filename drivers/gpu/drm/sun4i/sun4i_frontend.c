@@ -495,26 +495,26 @@ int sun4i_frontend_update_formats(struct sun4i_frontend *frontend,
 
 	ret = sun4i_frontend_drm_format_to_input_fmt(format, &in_fmt_val);
 	if (ret) {
-		DRM_DEBUG_DRIVER("Invalid input format\n");
+		DRM_ERROR("Invalid input format\n");
 		return ret;
 	}
 
 	ret = sun4i_frontend_drm_format_to_input_mode(format, modifier,
 						      &in_mod_val);
 	if (ret) {
-		DRM_DEBUG_DRIVER("Invalid input mode\n");
+		DRM_ERROR("Invalid input mode\n");
 		return ret;
 	}
 
 	ret = sun4i_frontend_drm_format_to_input_sequence(format, &in_ps_val);
 	if (ret) {
-		DRM_DEBUG_DRIVER("Invalid pixel sequence\n");
+		DRM_ERROR("Invalid pixel sequence\n");
 		return ret;
 	}
 
 	ret = sun4i_frontend_drm_format_to_output_fmt(out_fmt, &out_fmt_val);
 	if (ret) {
-		DRM_DEBUG_DRIVER("Invalid output format\n");
+		DRM_ERROR("Invalid output format\n");
 		return ret;
 	}
 
