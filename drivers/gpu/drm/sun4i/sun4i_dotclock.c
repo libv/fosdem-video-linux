@@ -7,6 +7,7 @@
  */
 
 #include <linux/clk-provider.h>
+#include <linux/clk.h>
 #include <linux/regmap.h>
 
 #include "sun4i_tcon.h"
@@ -16,6 +17,7 @@ struct sun4i_dclk {
 	struct clk_hw		hw;
 	struct regmap		*regmap;
 	struct sun4i_tcon	*tcon;
+	bool protected;
 };
 
 static inline struct sun4i_dclk *hw_to_dclk(struct clk_hw *hw)
@@ -29,6 +31,11 @@ static void sun4i_dclk_disable(struct clk_hw *hw)
 
 	regmap_update_bits(dclk->regmap, SUN4I_TCON0_DCLK_REG,
 			   BIT(SUN4I_TCON0_DCLK_GATE_BIT), 0);
+
+	if (dclk->protected) {
+		clk_rate_exclusive_put(hw->clk);
+		dclk->protected = false;
+	}
 }
 
 static int sun4i_dclk_enable(struct clk_hw *hw)
@@ -118,8 +125,15 @@ static int sun4i_dclk_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct sun4i_dclk *dclk = hw_to_dclk(hw);
 	u8 div = parent_rate / rate;
 
-	return regmap_update_bits(dclk->regmap, SUN4I_TCON0_DCLK_REG,
-				  GENMASK(6, 0), div);
+	regmap_update_bits(dclk->regmap, SUN4I_TCON0_DCLK_REG,
+			   GENMASK(6, 0), div);
+
+	if (!dclk->protected) {
+		clk_rate_exclusive_get(hw->clk);
+		dclk->protected = true;
+	}
+
+	return 0;
 }
 
 static int sun4i_dclk_get_phase(struct clk_hw *hw)
