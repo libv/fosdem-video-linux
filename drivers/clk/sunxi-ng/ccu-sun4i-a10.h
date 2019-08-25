@@ -24,7 +24,7 @@
 #define CLK_PLL_VE		10
 #define CLK_PLL_DDR_BASE	11
 #define CLK_PLL_DDR		12
-#define CLK_PLL_DDR_OTHER	13
+/* CLK_PLL_DDR_OTHER is exported */
 #define CLK_PLL_PERIPH_BASE	14
 #define CLK_PLL_PERIPH		15
 #define CLK_PLL_PERIPH_SATA	16
