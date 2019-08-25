@@ -102,3 +102,27 @@
 		function = "csi1";
 	};
 };
+
+&fe0 {
+	assigned-clocks = <&ccu CLK_DE_FE0>;
+	assigned-clock-parents = <&ccu CLK_PLL_DDR_OTHER>;
+	assigned-clock-rates = <256000000>;
+};
+
+&fe1 {
+	assigned-clocks = <&ccu CLK_DE_FE1>;
+	assigned-clock-parents = <&ccu CLK_PLL_DDR_OTHER>;
+	assigned-clock-rates = <256000000>;
+};
+
+&be0 {
+	assigned-clocks = <&ccu CLK_DE_BE0>;
+	assigned-clock-parents = <&ccu CLK_PLL_DDR_OTHER>;
+	assigned-clock-rates = <256000000>;
+};
+
+&be1 {
+	assigned-clocks = <&ccu CLK_DE_BE1>;
+	assigned-clock-parents = <&ccu CLK_PLL_DDR_OTHER>;
+	assigned-clock-rates = <256000000>;
+};
