@@ -177,8 +177,11 @@ static const uint32_t sun4i_layer_formats[] = {
 
 static const uint32_t sun4i_backend_layer_formats[] = {
 	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_BGRA8888,
 	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_BGRX8888,
 	DRM_FORMAT_RGB888,
+	DRM_FORMAT_BGR888,
 	DRM_FORMAT_ARGB1555,
 	DRM_FORMAT_ARGB4444,
 	DRM_FORMAT_RGB565,

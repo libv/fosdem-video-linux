@@ -94,8 +94,11 @@ void sun4i_backend_layer_enable(struct sun4i_backend *backend,
 
 static const uint32_t sun4i_backend_formats[] = {
 	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_BGRA8888,
 	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_BGRX8888,
 	DRM_FORMAT_RGB888,
+	DRM_FORMAT_BGR888,
 	DRM_FORMAT_ARGB1555,
 	DRM_FORMAT_ARGB4444,
 	DRM_FORMAT_RGB565,
@@ -244,6 +247,10 @@ static void sun4i_backend_rgb_packed_format_set(struct sun4i_backend *backend,
 	case DRM_FORMAT_ARGB8888:
 		value = SUN4I_BACKEND_LAY_FBFMT_ARGB8888;
 		break;
+	case DRM_FORMAT_BGRA8888:
+		value = SUN4I_BACKEND_LAY_FBFMT_ARGB8888;
+		value |= 0x02;
+		break;
 	case DRM_FORMAT_ARGB4444:
 		value = SUN4I_BACKEND_LAY_FBFMT_ARGB4444;
 		break;
@@ -259,6 +266,10 @@ static void sun4i_backend_rgb_packed_format_set(struct sun4i_backend *backend,
 	case DRM_FORMAT_RGB888:
 		value = SUN4I_BACKEND_LAY_FBFMT_RGB888;
 		break;
+	case DRM_FORMAT_BGR888:
+		value = SUN4I_BACKEND_LAY_FBFMT_RGB888;
+		value |= 0x02;
+		break;
 	case DRM_FORMAT_RGB565:
 		value = SUN4I_BACKEND_LAY_FBFMT_RGB565;
 		break;
@@ -270,11 +281,16 @@ static void sun4i_backend_rgb_packed_format_set(struct sun4i_backend *backend,
 	case DRM_FORMAT_XRGB8888:
 		value = SUN4I_BACKEND_LAY_FBFMT_XRGB8888;
 		break;
+	case DRM_FORMAT_BGRX8888:
+		value = SUN4I_BACKEND_LAY_FBFMT_XRGB8888;
+		value |= 0x02;
+		break;
 	}
 
+	/* bit 2 is B/R swap, bits 0-1 is pixel sequence */
 	regmap_update_bits(backend->engine.regs,
 			   SUN4I_BACKEND_ATTCTL_REG1(layer),
-			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT,
+			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT | 0x04 | 0x03,
 			   value);
 }
 
@@ -397,6 +413,10 @@ void sun4i_backend_frontend_set(struct sun4i_backend *backend,
 				   SUN4I_BACKEND_LAY_FBFMT_XRGB8888);
 		break;
 	}
+
+	/* clear channel swapping */
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG1(layer), 0x07, 0);
 }
 
 static void sun4i_backend_yuv_packed_buffer_set(struct sun4i_backend *backend,
