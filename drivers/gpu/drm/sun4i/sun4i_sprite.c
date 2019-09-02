@@ -9,6 +9,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_atomic_state_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_fb_cma_helper.h>
 
 #include "sun4i_crtc.h"
 #include "sunxi_engine.h"
@@ -80,8 +81,40 @@ sun4i_sprite_atomic_update(struct drm_plane *plane,
 			   struct drm_plane_state *plane_state_old)
 {
 	struct sun4i_sprite *sprite = sun4i_sprite_from_drm_plane(plane);
+	struct drm_plane_state *plane_state = plane->state;
+	struct drm_framebuffer *fb = plane_state->fb;
+	struct sunxi_engine *engine = &sprite->backend->engine;
+	dma_addr_t paddr;
 
 	DRM_DEBUG_DRIVER("%s(%d);\n", __func__, sprite->id);
+
+	/* select ARGB8888 */
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRFMTCTL_REG, 0);
+	/* disable alpha */
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRALPHACTL_REG, 0);
+
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRCOORCTL_REG(0),
+		     ((plane_state->crtc_y & 0xFFFF) << 16) |
+		     (plane_state->crtc_x & 0xFFFF));
+
+	/* Empty next block id, we set that later */
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRATTCTL_REG(0),
+		     (((plane_state->crtc_h - 1) & 0xFFF) << 20) |
+		     (((plane_state->crtc_w - 1) & 0xFFF) << 8));
+
+	/*
+	 * Note, sprites need to live below 256MiB, so make sure that CMA
+	 * lives there.
+	 */
+	paddr = drm_fb_cma_get_gem_addr(fb, plane_state, 0);
+
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRADD_REG(0), paddr);
+
+	regmap_write(engine->regs, SUN4I_BACKEND_SPRLINEWIDTH_REG(0),
+		     fb->pitches[0] << 3);
+
+	/* enable */
+	regmap_write(engine->regs, SUN4I_BACKEND_SPREN_REG, 0x01);
 }
 
 void
