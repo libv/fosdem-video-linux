@@ -76,6 +76,8 @@ static void sun4i_backend_commit(struct drm_crtc *crtc,
 
 	DRM_DEBUG_DRIVER("Committing changes\n");
 
+	sun4i_sprites_crtc_commit(crtc, state_old);
+
 	regmap_write(engine->regs, SUN4I_BACKEND_REGBUFFCTL_REG,
 		     SUN4I_BACKEND_REGBUFFCTL_AUTOLOAD_DIS |
 		     SUN4I_BACKEND_REGBUFFCTL_LOADCTL);

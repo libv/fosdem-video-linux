@@ -10,6 +10,7 @@
 #include <drm/drm_atomic_state_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 
+#include "sun4i_crtc.h"
 #include "sunxi_engine.h"
 #include "sun4i_backend_regs.h"
 #include "sun4i_backend.h"
@@ -83,6 +84,28 @@ sun4i_sprite_atomic_update(struct drm_plane *plane,
 	DRM_DEBUG_DRIVER("%s(%d);\n", __func__, sprite->id);
 }
 
+void
+sun4i_sprites_crtc_commit(struct drm_crtc *drm_crtc,
+			  struct drm_crtc_state *state_old)
+{
+	struct sun4i_crtc *crtc = drm_crtc_to_sun4i_crtc(drm_crtc);
+	struct sunxi_engine *engine = crtc->engine;
+	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
+	struct drm_crtc_state *state = drm_crtc->state;
+	uint32_t sprites_mask_new, sprites_mask_old;
+
+	sprites_mask_new = state->plane_mask & backend->sprites_mask;
+	sprites_mask_old = state_old->plane_mask & backend->sprites_mask;
+
+	if (!sprites_mask_new && sprites_mask_old) /* disable */
+		regmap_write(engine->regs, SUN4I_BACKEND_SPREN_REG, 0);
+}
+
+/*
+ * Nothing needs to happen here. We either have constructed a new list
+ * from active sprites, or, we have disabled the sprite block from the
+ * crtc atomic_flush hook.
+ */
 static void
 sun4i_sprite_atomic_disable(struct drm_plane *plane,
 			    struct drm_plane_state *old_state)
