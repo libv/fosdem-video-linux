@@ -13,4 +13,7 @@ struct drm_plane *sun4i_sprite_plane_init(struct drm_device *drm,
 int sun4i_sprites_crtc_atomic_check(struct sunxi_engine *engine,
 				    struct drm_crtc_state *crtc_state);
 
+void sun4i_sprites_crtc_commit(struct drm_crtc *drm_crtc,
+			       struct drm_crtc_state *state_old);
+
 #endif /* _SUN4I_SPRITE_H_ */
