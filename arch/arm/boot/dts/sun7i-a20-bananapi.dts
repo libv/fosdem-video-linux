@@ -401,3 +401,27 @@
 	usb2_vbus-supply = <&reg_usb2_vbus>;
 	status = "okay";
 };
+
+&fe0 {
+	assigned-clocks = <&ccu CLK_DE_FE0>;
+	assigned-clock-parents = <&ccu CLK_PLL_DDR_OTHER>;
+	assigned-clock-rates = <288000000>;
+};
+
+&fe1 {
+	assigned-clocks = <&ccu CLK_DE_FE1>;
+	assigned-clock-parents = <&ccu CLK_PLL_DDR_OTHER>;
+	assigned-clock-rates = <288000000>;
+};
+
+&be0 {
+	assigned-clocks = <&ccu CLK_DE_BE0>;
+	assigned-clock-parents = <&ccu CLK_PLL_DDR_OTHER>;
+	assigned-clock-rates = <288000000>;
+};
+
+&be1 {
+	assigned-clocks = <&ccu CLK_DE_BE1>;
+	assigned-clock-parents = <&ccu CLK_PLL_DDR_OTHER>;
+	assigned-clock-rates = <288000000>;
+};
