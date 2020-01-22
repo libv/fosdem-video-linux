@@ -105,6 +105,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&csi1_pins>;
 	status = "okay";
+
+	active-gpios = <&pio 7 7 GPIO_ACTIVE_HIGH>; /* PH7/EINT7 */
 };
 
 &pio {
