@@ -17,6 +17,71 @@
 #include "sun4i_layer.h"
 #include "sunxi_engine.h"
 
+#define SUN4I_LAYER_FORMATS_RGB \
+	DRM_FORMAT_XRGB8888, \
+	DRM_FORMAT_BGRX8888, \
+	DRM_FORMAT_RGB888, \
+	DRM_FORMAT_BGR888, \
+	DRM_FORMAT_RGB565
+
+#define SUN4I_LAYER_FORMATS_RGBA \
+	DRM_FORMAT_ARGB8888, \
+	DRM_FORMAT_BGRA8888, \
+	DRM_FORMAT_ARGB1555, \
+	DRM_FORMAT_RGBA5551, \
+	DRM_FORMAT_ARGB4444, \
+	DRM_FORMAT_RGBA4444
+
+#define SUN4I_LAYER_FORMATS_YUV \
+	DRM_FORMAT_UYVY, \
+	DRM_FORMAT_VYUY, \
+	DRM_FORMAT_YUYV, \
+	DRM_FORMAT_YVYU, \
+	DRM_FORMAT_R8_G8_B8
+
+static const uint32_t sun4i_layer_formats_rgb[] = {
+	SUN4I_LAYER_FORMATS_RGB,
+};
+
+static const uint32_t sun4i_layer_formats_rgba[] = {
+	SUN4I_LAYER_FORMATS_RGBA,
+	SUN4I_LAYER_FORMATS_RGB,
+};
+
+static const uint32_t sun4i_layer_formats_yuv[] = {
+	SUN4I_LAYER_FORMATS_RGB,
+	SUN4I_LAYER_FORMATS_RGBA,
+	SUN4I_LAYER_FORMATS_YUV,
+};
+
+/*
+ * TODO: fully test all formats. --libv
+ * Alpha channel likely gets set to 0xFF when using the frontend.
+  */
+static const uint32_t sun4i_layer_formats_frontend[] = {
+	SUN4I_LAYER_FORMATS_RGB,
+	SUN4I_LAYER_FORMATS_RGBA,
+	SUN4I_LAYER_FORMATS_YUV,
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV16,
+	DRM_FORMAT_NV21,
+	DRM_FORMAT_NV61,
+	DRM_FORMAT_YUV411,
+	DRM_FORMAT_YUV420,
+	DRM_FORMAT_YUV422,
+	DRM_FORMAT_YUV444,
+	DRM_FORMAT_YVU411,
+	DRM_FORMAT_YVU420,
+	DRM_FORMAT_YVU422,
+	DRM_FORMAT_YVU444,
+};
+
+static const uint64_t sun4i_layer_format_modifiers_frontend[] = {
+	DRM_FORMAT_MOD_LINEAR,
+	DRM_FORMAT_MOD_ALLWINNER_TILED,
+	DRM_FORMAT_MOD_INVALID
+};
+
 static void sun4i_backend_layer_reset(struct drm_plane *plane)
 {
 	struct sun4i_layer *layer = plane_to_sun4i_layer(plane);
@@ -151,68 +216,14 @@ static const struct drm_plane_funcs sun4i_backend_layer_funcs = {
 	.format_mod_supported	= sun4i_layer_format_mod_supported,
 };
 
-static const uint32_t sun4i_layer_formats[] = {
-	DRM_FORMAT_ARGB8888,
-	DRM_FORMAT_ARGB4444,
-	DRM_FORMAT_ARGB1555,
-	DRM_FORMAT_BGRX8888,
-	DRM_FORMAT_RGBA5551,
-	DRM_FORMAT_RGBA4444,
-	DRM_FORMAT_RGB888,
-	DRM_FORMAT_RGB565,
-	DRM_FORMAT_NV12,
-	DRM_FORMAT_NV16,
-	DRM_FORMAT_NV21,
-	DRM_FORMAT_NV61,
-	DRM_FORMAT_UYVY,
-	DRM_FORMAT_VYUY,
-	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_YUV411,
-	DRM_FORMAT_YUV420,
-	DRM_FORMAT_YUV422,
-	DRM_FORMAT_YUV444,
-	DRM_FORMAT_YUYV,
-	DRM_FORMAT_YVU411,
-	DRM_FORMAT_YVU420,
-	DRM_FORMAT_YVU422,
-	DRM_FORMAT_YVU444,
-	DRM_FORMAT_YVYU,
-	DRM_FORMAT_R8_G8_B8,
-};
-
-static const uint32_t sun4i_backend_layer_formats[] = {
-	DRM_FORMAT_ARGB8888,
-	DRM_FORMAT_BGRA8888,
-	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_BGRX8888,
-	DRM_FORMAT_RGB888,
-	DRM_FORMAT_BGR888,
-	DRM_FORMAT_ARGB1555,
-	DRM_FORMAT_ARGB4444,
-	DRM_FORMAT_RGB565,
-	DRM_FORMAT_RGBA4444,
-	DRM_FORMAT_RGBA5551,
-	DRM_FORMAT_UYVY,
-	DRM_FORMAT_VYUY,
-	DRM_FORMAT_YUYV,
-	DRM_FORMAT_YVYU,
-	DRM_FORMAT_R8_G8_B8,
-};
-
-static const uint64_t sun4i_layer_modifiers[] = {
-	DRM_FORMAT_MOD_LINEAR,
-	DRM_FORMAT_MOD_ALLWINNER_TILED,
-	DRM_FORMAT_MOD_INVALID
-};
-
 static struct drm_plane *sun4i_layer_init_one(struct drm_device *drm,
 					      struct sun4i_backend *backend,
 					      enum drm_plane_type type,
 					      int id)
 {
-	const uint64_t *modifiers = sun4i_layer_modifiers;
-	const uint32_t *formats = sun4i_layer_formats;
-	unsigned int formats_len = ARRAY_SIZE(sun4i_layer_formats);
+	const uint64_t *modifiers;
+	const uint32_t *formats;
+	unsigned int formats_len;
 	struct sun4i_layer *layer;
 	int ret;
 
@@ -224,9 +235,13 @@ static struct drm_plane *sun4i_layer_init_one(struct drm_device *drm,
 	layer->backend = backend;
 
 	if (IS_ERR_OR_NULL(backend->frontend)) {
-		formats = sun4i_backend_layer_formats;
-		formats_len = ARRAY_SIZE(sun4i_backend_layer_formats);
+		formats = sun4i_layer_formats_yuv;
+		formats_len = ARRAY_SIZE(sun4i_layer_formats_yuv);
 		modifiers = NULL;
+	} else {
+		formats = sun4i_layer_formats_frontend;
+		formats_len = ARRAY_SIZE(sun4i_layer_formats_frontend);
+		modifiers = sun4i_layer_format_modifiers_frontend;
 	}
 
 	/* possible crtcs are set later */
