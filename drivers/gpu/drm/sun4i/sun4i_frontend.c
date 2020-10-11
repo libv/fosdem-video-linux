@@ -90,13 +90,21 @@ static void sun4i_frontend_scaler_init(struct sun4i_frontend *frontend)
 			     sun4i_frontend_horz_coef[2 * i]);
 		regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_HORZCOEF0_REG(i),
 			     sun4i_frontend_horz_coef[2 * i]);
+		regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_HORZCOEF0_REG(i),
+			     sun4i_frontend_horz_coef[2 * i]);
+
 		regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_HORZCOEF1_REG(i),
 			     sun4i_frontend_horz_coef[2 * i + 1]);
 		regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_HORZCOEF1_REG(i),
 			     sun4i_frontend_horz_coef[2 * i + 1]);
+		regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_HORZCOEF1_REG(i),
+			     sun4i_frontend_horz_coef[2 * i + 1]);
+
 		regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_VERTCOEF_REG(i),
 			     sun4i_frontend_vert_coef[i]);
 		regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_VERTCOEF_REG(i),
+			     sun4i_frontend_vert_coef[i]);
+		regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_VERTCOEF_REG(i),
 			     sun4i_frontend_vert_coef[i]);
 	}
 
@@ -463,13 +471,21 @@ int sun4i_frontend_update_formats(struct sun4i_frontend *frontend,
 		     frontend->data->scaler_phase);
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_HORZPHASE_REG,
 		     frontend->data->scaler_phase);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_HORZPHASE_REG,
+		     frontend->data->scaler_phase);
+
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_VERTPHASE0_REG,
 		     frontend->data->scaler_phase);
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_VERTPHASE0_REG,
 		     frontend->data->scaler_phase);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_VERTPHASE0_REG,
+		     frontend->data->scaler_phase);
+
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_VERTPHASE1_REG,
 		     frontend->data->scaler_phase);
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_VERTPHASE1_REG,
+		     frontend->data->scaler_phase);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_VERTPHASE1_REG,
 		     frontend->data->scaler_phase);
 
 	/*
@@ -530,20 +546,28 @@ void sun4i_frontend_update_coord(struct sun4i_frontend *frontend,
 		     SUN4I_FRONTEND_INSIZE(luma_height, luma_width));
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_INSIZE_REG,
 		     SUN4I_FRONTEND_INSIZE(chroma_height, chroma_width));
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_INSIZE_REG,
+		     SUN4I_FRONTEND_INSIZE(chroma_height, chroma_width));
 
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_OUTSIZE_REG,
 		     SUN4I_FRONTEND_OUTSIZE(state->crtc_h, state->crtc_w));
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_OUTSIZE_REG,
+		     SUN4I_FRONTEND_OUTSIZE(state->crtc_h, state->crtc_w));
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_OUTSIZE_REG,
 		     SUN4I_FRONTEND_OUTSIZE(state->crtc_h, state->crtc_w));
 
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_HORZFACT_REG,
 		     (luma_width << 16) / state->crtc_w);
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_HORZFACT_REG,
 		     (chroma_width << 16) / state->crtc_w);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_HORZFACT_REG,
+		     (chroma_width << 16) / state->crtc_w);
 
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_VERTFACT_REG,
 		     (luma_height << 16) / state->crtc_h);
 	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_VERTFACT_REG,
+		     (chroma_height << 16) / state->crtc_h);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH2_VERTFACT_REG,
 		     (chroma_height << 16) / state->crtc_h);
 
 	regmap_write_bits(frontend->regs, SUN4I_FRONTEND_FRM_CTRL_REG,
