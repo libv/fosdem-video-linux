@@ -1953,6 +1953,7 @@ static void __vb2_queue_cancel(struct vb2_queue *q)
 	 * Remove all buffers from videobuf's list...
 	 */
 	INIT_LIST_HEAD(&q->queued_list);
+	q->last_buffer_dequeued = false;
 	/*
 	 * ...and done list; userspace will not receive any buffers it
 	 * has not already dequeued before initiating cancel.
@@ -2082,7 +2083,6 @@ int vb2_core_streamoff(struct vb2_queue *q, unsigned int type)
 	 */
 	__vb2_queue_cancel(q);
 	q->waiting_for_buffers = !q->is_output;
-	q->last_buffer_dequeued = false;
 
 	dprintk(q, 3, "successful\n");
 	return 0;
