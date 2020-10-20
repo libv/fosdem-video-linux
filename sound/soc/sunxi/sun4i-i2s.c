@@ -195,43 +195,43 @@ struct sun4i_i2s_clk_div {
 };
 
 static const struct sun4i_i2s_clk_div sun4i_i2s_bclk_div[] = {
-	{ .div = 2, .val = 0 },
-	{ .div = 4, .val = 1 },
-	{ .div = 6, .val = 2 },
-	{ .div = 8, .val = 3 },
-	{ .div = 12, .val = 4 },
-	{ .div = 16, .val = 5 },
+	{ .div =  2, .val = 0x00 },
+	{ .div =  4, .val = 0x01 },
+	{ .div =  6, .val = 0x02 },
+	{ .div =  8, .val = 0x03 },
+	{ .div = 12, .val = 0x04 },
+	{ .div = 16, .val = 0x05 },
 	/* TODO - extend divide ratio supported by newer SoCs */
 };
 
 static const struct sun4i_i2s_clk_div sun4i_i2s_mclk_div[] = {
-	{ .div = 1, .val = 0 },
-	{ .div = 2, .val = 1 },
-	{ .div = 4, .val = 2 },
-	{ .div = 6, .val = 3 },
-	{ .div = 8, .val = 4 },
-	{ .div = 12, .val = 5 },
-	{ .div = 16, .val = 6 },
-	{ .div = 24, .val = 7 },
+	{ .div =  1, .val = 0x00 },
+	{ .div =  2, .val = 0x01 },
+	{ .div =  4, .val = 0x02 },
+	{ .div =  6, .val = 0x03 },
+	{ .div =  8, .val = 0x04 },
+	{ .div = 12, .val = 0x05 },
+	{ .div = 16, .val = 0x06 },
+	{ .div = 24, .val = 0x07 },
 	/* TODO - extend divide ratio supported by newer SoCs */
 };
 
 static const struct sun4i_i2s_clk_div sun8i_i2s_clk_div[] = {
-	{ .div = 1, .val = 1 },
-	{ .div = 2, .val = 2 },
-	{ .div = 4, .val = 3 },
-	{ .div = 6, .val = 4 },
-	{ .div = 8, .val = 5 },
-	{ .div = 12, .val = 6 },
-	{ .div = 16, .val = 7 },
-	{ .div = 24, .val = 8 },
-	{ .div = 32, .val = 9 },
-	{ .div = 48, .val = 10 },
-	{ .div = 64, .val = 11 },
-	{ .div = 96, .val = 12 },
-	{ .div = 128, .val = 13 },
-	{ .div = 176, .val = 14 },
-	{ .div = 192, .val = 15 },
+	{ .div =   1, .val = 0x01 },
+	{ .div =   2, .val = 0x02 },
+	{ .div =   4, .val = 0x03 },
+	{ .div =   6, .val = 0x04 },
+	{ .div =   8, .val = 0x05 },
+	{ .div =  12, .val = 0x06 },
+	{ .div =  16, .val = 0x07 },
+	{ .div =  24, .val = 0x08 },
+	{ .div =  32, .val = 0x09 },
+	{ .div =  48, .val = 0x10 },
+	{ .div =  64, .val = 0x11 },
+	{ .div =  96, .val = 0x12 },
+	{ .div = 128, .val = 0x13 },
+	{ .div = 176, .val = 0x14 },
+	{ .div = 192, .val = 0x15 },
 };
 
 static unsigned long sun4i_i2s_get_bclk_parent_rate(const struct sun4i_i2s *i2s)
