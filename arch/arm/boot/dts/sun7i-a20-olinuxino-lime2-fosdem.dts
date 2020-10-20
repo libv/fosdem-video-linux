@@ -56,6 +56,30 @@
 		enable-active-high;
 		regulator-boot-on;
 	};
+
+	codec_dummy: codec_dummy {
+		compatible = "linux,snd-soc-dummy";
+		#sound-dai-cells = <0>;
+	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "fosdem-i2s";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <128>;
+
+		master_cpu: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+			bitclock-master;
+			frame-master;
+		};
+
+		master_codec: simple-audio-card,codec {
+			sound-dai = <&codec_dummy>;
+			//bitclock-master;
+			//frame-master;
+		};
+	};
 };
 
 &pwm {
@@ -120,4 +144,15 @@
 			"PH20", "PH21", "PH22", "PH23";
 		function = "csi1";
 	};
+
+	i2s0_data_pins: i2s0-data-pins {
+		pins = "PB6", "PB7", "PB8", "PB12";
+		function = "i2s0";
+	};
+};
+
+&i2s0 {
+      pinctrl-names = "default";
+      pinctrl-0 = <&i2s0_data_pins>;
+      status = "okay";
 };
