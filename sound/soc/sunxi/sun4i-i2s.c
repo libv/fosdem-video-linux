@@ -201,6 +201,8 @@ static const struct sun4i_i2s_clk_div sun4i_i2s_bclk_div[] = {
 	{ .div =  8, .val = 0x03 },
 	{ .div = 12, .val = 0x04 },
 	{ .div = 16, .val = 0x05 },
+	{ .div = 32, .val = 0x06 },
+	{ .div = 64, .val = 0x07 },
 	/* TODO - extend divide ratio supported by newer SoCs */
 };
 
@@ -213,6 +215,9 @@ static const struct sun4i_i2s_clk_div sun4i_i2s_mclk_div[] = {
 	{ .div = 12, .val = 0x05 },
 	{ .div = 16, .val = 0x06 },
 	{ .div = 24, .val = 0x07 },
+	{ .div = 32, .val = 0x08 },
+	{ .div = 48, .val = 0x09 },
+	{ .div = 64, .val = 0x0A },
 	/* TODO - extend divide ratio supported by newer SoCs */
 };
 
