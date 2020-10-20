@@ -4,7 +4,7 @@
 #include "sun7i-a20-olinuxino-lime2.dts"
 
 / {
-	model = "Olimex A20-OLinuXino-LIME2";
+	model = "Olimex A20-OLinuXino-LIME2-FOSDEM";
 	compatible = "olimex,a20-olinuxino-lime2", "allwinner,sun7i-a20";
 
 	backlight: backlight {
