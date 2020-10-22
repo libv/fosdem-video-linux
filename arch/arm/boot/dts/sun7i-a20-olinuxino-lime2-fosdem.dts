@@ -156,3 +156,7 @@
 	pinctrl-0 = <&i2s0_data_pins>;
 	status = "okay";
 };
+
+&codec {
+	status = "okay";
+};
