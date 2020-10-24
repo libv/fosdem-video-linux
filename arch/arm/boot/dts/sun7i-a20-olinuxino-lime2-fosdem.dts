@@ -152,7 +152,7 @@
 };
 
 &i2s0 {
-      pinctrl-names = "default";
-      pinctrl-0 = <&i2s0_data_pins>;
-      status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s0_data_pins>;
+	status = "okay";
 };
