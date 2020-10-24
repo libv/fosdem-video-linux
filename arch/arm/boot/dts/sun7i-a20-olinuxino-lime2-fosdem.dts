@@ -159,4 +159,6 @@
 
 &codec {
 	status = "okay";
+	hp-det-gpio = <&pio 8 14 GPIO_ACTIVE_HIGH>; /* PI14 */
+	mic-det-gpio = <&pio 8 15 GPIO_ACTIVE_HIGH>; /* PI15 */
 };

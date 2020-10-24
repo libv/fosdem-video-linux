@@ -31,6 +31,8 @@
 #include <sound/tlv.h>
 #include <sound/initval.h>
 #include <sound/dmaengine_pcm.h>
+#include <sound/simple_card_utils.h>
+#include <sound/jack.h>
 
 /* Codec DAC digital controls and FIFO registers */
 #define SUN4I_CODEC_DAC_DPC			(0x00)
@@ -245,6 +247,9 @@ struct sun4i_codec {
 
 	struct snd_dmaengine_dai_dma_data	capture_dma_data;
 	struct snd_dmaengine_dai_dma_data	playback_dma_data;
+
+	struct asoc_simple_jack jack_headphone[1];
+	struct asoc_simple_jack jack_microphone[1];
 };
 
 static void sun4i_codec_start_playback(struct sun4i_codec *scodec)
@@ -1344,11 +1349,16 @@ static int sun4i_codec_spk_event(struct snd_soc_dapm_widget *w,
 
 static const struct snd_soc_dapm_widget sun4i_codec_card_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Speaker", sun4i_codec_spk_event),
+	SND_SOC_DAPM_HP("Headphone Jack", NULL),
+	SND_SOC_DAPM_MIC("Microphone Jack", NULL),
 };
 
 static const struct snd_soc_dapm_route sun4i_codec_card_dapm_routes[] = {
 	{ "Speaker", NULL, "HP Right" },
 	{ "Speaker", NULL, "HP Left" },
+	{ "Headphone Jack", NULL, "HP Right" },
+	{ "Headphone Jack", NULL, "HP Left" },
+	{ "Microphone Jack", NULL, "Mic1" },
 };
 
 static struct snd_soc_card *sun4i_codec_create_card(struct device *dev)
@@ -1689,6 +1699,44 @@ static const struct of_device_id sun4i_codec_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sun4i_codec_of_match);
 
+static int sunxi_jack_headphone_event(struct notifier_block *nb,
+				      unsigned long event,
+				      void *data)
+{
+	struct snd_soc_jack *jack = (struct snd_soc_jack *)data;
+	struct device *dev = jack->card->dev;
+
+	if (event & SND_JACK_HEADPHONE)
+		dev_info(dev, "Headphone Jack: connected.\n");
+	else
+		dev_info(dev, "Headphone Jack: disconnected.\n");
+
+	return 0;
+}
+
+static struct notifier_block sunxi_jack_headphone_notifier = {
+	.notifier_call = sunxi_jack_headphone_event,
+};
+
+static int sunxi_jack_microphone_event(struct notifier_block *nb,
+				       unsigned long event,
+				       void *data)
+{
+	struct snd_soc_jack *jack = (struct snd_soc_jack *)data;
+	struct device *dev = jack->card->dev;
+
+	if (event & SND_JACK_MICROPHONE)
+		dev_info(dev, "Microphone Jack: connected.\n");
+	else
+		dev_info(dev, "Microphone Jack: disconnected.\n");
+
+	return 0;
+}
+
+static struct notifier_block sunxi_jack_microphone_notifier = {
+	.notifier_call = sunxi_jack_microphone_event,
+};
+
 static int sun4i_codec_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card;
@@ -1826,6 +1874,26 @@ static int sun4i_codec_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register our card\n");
 		goto err_assert_reset;
+	}
+
+	if (of_property_read_bool(scodec->dev->of_node, "hp-det-gpio")) {
+		ret = asoc_simple_init_jack(card, scodec->jack_headphone,
+					    1, NULL, "Headphone Jack");
+		if (ret)
+			goto err_assert_reset;
+
+		snd_soc_jack_notifier_register(&scodec->jack_headphone->jack,
+					       &sunxi_jack_headphone_notifier);
+	}
+
+	if (of_property_read_bool(scodec->dev->of_node, "mic-det-gpio")) {
+		ret = asoc_simple_init_jack(card, scodec->jack_microphone,
+					    0, NULL, "Microphone Jack");
+		if (ret)
+			goto err_assert_reset;
+
+		snd_soc_jack_notifier_register(&scodec->jack_microphone->jack,
+					       &sunxi_jack_microphone_notifier);
 	}
 
 	return 0;
